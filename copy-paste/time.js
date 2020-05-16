@@ -16,9 +16,11 @@ exports.waiter = async (predicate, { timeout, delay }) => {
  * Cumulative timer
  *
  * ```
- * const { start } = stopwatch();
+ * const { start, total } = stopwatch();
  * const end = start();
  * end() === millis;
+ * start()();
+ * total() === totalMillis;
  * ```
  *
  * @param {number} startAt Loaded from the persisted state
