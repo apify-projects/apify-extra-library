@@ -1,16 +1,9 @@
-// Extract a float from common price string
-exports.parsePrice = (priceString) => Number(priceString.replace(/[^0-9.]/g, ''));
-
 /**
- * 50000 -> 500.00 | null
+ * Extracts a float from common price string. Removes commas, currency symbols and others.
  *
- * @param {string|number} value
- * @returns {(number|null)}
+ * @param {string} priceString
  */
-exports.parseCents = (value) => {
-  value = parseFloat(value / 100);
-  return value ? +(value.toFixed(2)) : null;
-};
+exports.parsePrice = (priceString) => Number(priceString.replace(/[^0-9.]/g, ''));
 
 /**
  * Safe(r) encodeURI, tries to not double encode the url
