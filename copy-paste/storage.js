@@ -8,8 +8,12 @@ const Promise = require('bluebird');
  * Requires bluebird dependency
  *
  * @param {array} datasetIds IDs of datasets you want to load
- * @param {object} options Options with default values. Raw output of this function is array of datasets of arrays of batches of array ofitems.
- * concatItems makes it return only array of datasets. concatDatasets makes it return just single array of all items. Both are true by default.
+ * @param {object} options Options with default values.
+ * If both concatItems and concatDatasets are false, output of this function is an array of datasets containing arrays of batches containig array of items.
+ * concatItems concats all batches of one dataset into one array of items.
+ * concatDatasets concat all datasets into one array of batches
+ * Using both concatItems and concatDatasets gives you back a sinlge array of all items in order.
+ * Both are true by default.
  * @param {number} options.parallelLoads
  * @param {number} options.batchSize
  * @param {boolean} options.concatItems
