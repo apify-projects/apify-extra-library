@@ -1,4 +1,19 @@
-exports.waiter = async (predicate, { timeout, delay }) => {
+/**
+ * Waits until a predicate (funcion that returns bool) returns true
+ *
+ * ```
+ * let eventFired = false;
+ * await waiter(() => eventFired, { timeout: 120000, delay: 5000 })
+ * // Something happening elsewhere that will set eventFired to true
+ * ```
+ *
+ * @param function predicate
+ * @param options
+ * @param options.timeout=120000
+ * @param options.delay=1000
+ */
+exports.waiter = async (predicate, options = {}) => {
+    const { timeout = 120000, delay = 1000 } = options;
     const start = Date.now();
     while (true) {
         if (predicate()) {
