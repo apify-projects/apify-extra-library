@@ -24,7 +24,7 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
     const { parallelLoads = 20, batchSize = 50000, concatItems = true, concatDatasets = true } = options;
 
     // This is array of arrays. Top level array is for each dataset and inside one entry for each batch (in order)
-    const loadedBatchedArr = [];
+    let loadedBatchedArr = [];
     // We increment for each dataset so we remember their order
     let datasetIndex = 0;
     let totalLoaded = 0;
