@@ -7,7 +7,7 @@ const Promise = require('bluebird');
  * By changing concatItems or concatDatasets options, you can get array of arrays (of arrays) back
  * Requires bluebird dependency
  *
- * @param {array} datasetIds IDs of datasets you want to load
+ * @param {string[]} datasetIds IDs of datasets you want to load
  * @param {object} options Options with default values.
  * If both concatItems and concatDatasets are false, output of this function is an array of datasets containing arrays of batches containig array of items.
  * concatItems concats all batches of one dataset into one array of items.

@@ -1,6 +1,10 @@
-// Useful when you need to split price filters
-// to overcome max pages shown for a cateogry
-// This just takes an object with min and max numbers and splits them into halves
+/**
+ * Useful when you need to split price filters
+ * to overcome max pages shown for a cateogry
+ * This just takes an object with min and max numbers and splits them into halves
+ *
+ * @param {{ min: number, max: number }} filter
+ */
 exports.splitFilter = (filter) => {
     const { min, max } = filter;
     if (min > max) {

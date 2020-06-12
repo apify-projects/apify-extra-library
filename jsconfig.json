@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "es2018",
+    "module": "commonJS",
+    "lib": [
+      "dom",
+      "es5",
+      "es6",
+      "es2018",
+      "dom.iterable",
+      "es2019.array",
+      "es2019.object"
+    ],
+    "strict": true,
+    "checkJs": true,
+    "alwaysStrict": true,
+    "moduleResolution": "node",
+    "esModuleInterop": false,
+    "allowSyntheticDefaultImports": false
+  },
+  "include": [
+    "./**/*.js"
+  ]
+}
