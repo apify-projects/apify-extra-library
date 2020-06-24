@@ -72,6 +72,7 @@ exports.intervalPushData = async (dataset, limit = 50000) => {
 
             while (dataToPush.length) {
                 await Apify.pushData(dataToPush.splice(0, limit));
+                await Apify.utils.sleep(1000);
             }
         }
     }
