@@ -41,21 +41,30 @@ exports.createPersistedMap = async (name, key) => {
 exports.intervalPushData = async (dataset, limit = 50000) => {
     const data = new Map(await Apify.getValue('PENDING_PUSH'));
     await Apify.setValue('PENDING_PUSH', []);
-    let isMigrating = false;
+    let shouldPush = true;
 
-    const interval = setInterval(async () => {
-        if (!isMigrating && data.size >= limit) {
+    /** @type {any} */
+    let timeout;
+
+    const timeoutFn = async () => {
+        if (shouldPush && data.size >= limit) {
             const dataToPush = [...data.values()];
             data.clear();
             await dataset.pushData(dataToPush);
         }
-    }, 10000);
+
+        timeout = setTimeout(timeoutFn, 10000);
+    };
 
     Apify.events.on('migrating', async () => {
-        isMigrating = true;
-        clearInterval(interval);
+        shouldPush = false;
+        if (timeout) {
+            clearTimeout(timeout);
+        }
         await Apify.setValue('PENDING_PUSH', [...data.entries()]);
     });
+
+    await timeoutFn();
 
     return {
         /**
@@ -75,7 +84,11 @@ exports.intervalPushData = async (dataset, limit = 50000) => {
          * Call this after await crawler.run()
          */
         async flush() {
-            clearInterval(interval);
+            shouldPush = false;
+
+            if (timeout) {
+                clearTimeout(timeout);
+            }
 
             const dataToPush = [...data.values()];
 
