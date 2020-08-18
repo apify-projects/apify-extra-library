@@ -30,6 +30,8 @@ exports.bufferDataset = (dataset, options = {}) => {
      * Call this after await crawler.run()
      */
     const flush = async () => {
+        // We reassign and clean the buffer here
+        // If we would clean after pushing, new items might have been added between the await
         const data = buffer;
         buffer = [];
         if (verboseLog) {
