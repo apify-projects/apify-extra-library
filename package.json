@@ -1,0 +1,26 @@
+{
+  "name": "apify-utils",
+  "version": "1.0.0",
+  "description": "Why another repo when we already have great [SDK](https://sdk.apify.com/) and many examples? This repo contains either  - New features that may or may not land in the SDK once tested by time - Simple functions for specific use-cases that are too specific for the SDK (like price parsing)",
+  "main": "test.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "start": "node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metalwarrior665/apify-utils.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/metalwarrior665/apify-utils/issues"
+  },
+  "homepage": "https://github.com/metalwarrior665/apify-utils#readme",
+  "dependencies": {
+    "apify": "^0.21.3",
+    "bluebird": "^3.7.2"
+  }
+}
