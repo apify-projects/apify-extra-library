@@ -4,29 +4,29 @@ const Apify = require('apify');
  * Create and return a Map that is persisted to KV on 'persistState'
  * and can be persisted manually calling `await persistState()`
  *
- * @param {string} name
- * @param {string} key
+ * @param {string} storeName
+ * @param {string} recordKey
  */
-exports.createPersistedMap = async (name, key) => {
-  const kv = await Apify.openKeyValueStore(name);
+exports.createPersistedMap = async (storeName, recordKey) => {
+    const kv = await Apify.openKeyValueStore(storeName);
 
-  /** @type {Map<string, any>} */
-  const state = new Map(
-      await kv.getValue(key),
-  );
+    /** @type {Map<string, any>} */
+    const map = new Map(
+        await kv.getValue(recordKey),
+    );
 
-  const persistState = async () => {
-      await kv.setValue(key, [...state]);
-  };
+    const persistState = async () => {
+        await kv.setValue(recordKey, [...map]);
+    };
 
-  Apify.events.on('persistState', persistState);
+    Apify.events.on('persistState', persistState);
 
-  return {
-      persistState,
-      state,
-      name,
-      key,
-  };
+    return {
+        persistState,
+        map,
+        storeName,
+        recordKey,
+    };
 };
 
 /**
@@ -96,9 +96,9 @@ exports.intervalPushData = async (dataset, limit = 50000) => {
                 await Apify.pushData(dataToPush.splice(0, limit));
                 await Apify.utils.sleep(1000);
             }
-        }
-    }
-}
+        },
+    };
+};
 
 /**
  * The more concurrent writes to the RequestQueue,
@@ -149,6 +149,6 @@ exports.RateLimitedRQ = (rq) => {
             }
 
             return added;
-        }
-    }
-}
+        },
+    };
+};
