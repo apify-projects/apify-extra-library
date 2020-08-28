@@ -23,14 +23,14 @@ exports.encodeUrl = (url) => /%[0-9a-f]{2}/i.test(url) ? url : encodeURI(url);
  * @param {number} [startOffset=0] Apply an offset to the start
  */
 exports.subString = (html, start, end, endOffset = 0, startOffset = 0) => {
-  let startIndex = html.indexOf(start);
-  if (startIndex === -1) {
-    throw new Error('"start" not found');
-  }
-  html = html.slice(startIndex);
-  let endIndex = html.indexOf(end);
-  if (endIndex === -1) {
-    throw new Error('"end" not found');
-  }
-  return html.slice(start.length + startOffset, endIndex + end.length + endOffset);
-}
+    const startIndex = html.indexOf(start);
+    if (startIndex === -1) {
+        throw new Error('"start" not found');
+    }
+    html = html.slice(startIndex);
+    const endIndex = html.indexOf(end);
+    if (endIndex === -1) {
+        throw new Error('"end" not found');
+    }
+    return html.slice(start.length + startOffset, endIndex + end.length + endOffset);
+};

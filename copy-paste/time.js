@@ -3,17 +3,17 @@
  *
  * ```
  * let eventFired = false;
- * await waiter(() => eventFired, { timeout: 120000, delay: 5000 })
+ * await waiter(() => eventFired, { timeout: 120000, pollInterval: 1000 })
  * // Something happening elsewhere that will set eventFired to true
  * ```
  *
- * @param function predicate
- * @param options
- * @param options.timeout=120000
- * @param options.delay=1000
+ * @param {function} predicate
+ * @param {object} options
+ * @param {number} options.timeout=120000
+ * @param {number} options.pollInterval=1000
  */
 exports.waiter = async (predicate, options = {}) => {
-    const { timeout = 120000, delay = 1000 } = options;
+    const { timeout = 120000, pollInterval = 1000 } = options;
     const start = Date.now();
     while (true) {
         if (predicate()) {
@@ -23,7 +23,7 @@ exports.waiter = async (predicate, options = {}) => {
         if (waitingFor > timeout) {
             throw new Error(`Timeout reached when waiting for predicate for ${waitingFor} ms`);
         }
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
 };
 
