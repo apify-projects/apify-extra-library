@@ -109,6 +109,8 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
     let datasetIndex = 0;
     let totalLoaded = 0;
     const loadStart = Date.now();
+    // Multiple datasets are not parallelized against each other yet
+    // TODO: Paralellize multiple datasets
     for (const datasetId of datasetIds) {
         loadedBatchedArr[datasetIndex] = [];
         let totalLoadedPerDataset = 0;
