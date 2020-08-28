@@ -81,7 +81,8 @@ exports.bufferDataset = (dataset, options = {}) => {
 };
 
 /**
- * Loads items from many datasets in parallel, retaining order of both items and datasets. Useful for large loads.
+ * Loads items from one or many datasets in parallel by chunking the items from each dataset into batches,
+ * retaining order of both items and datasets. Useful for large loads.
  * By default returns one array of items in order of datasets provided.
  * By changing concatItems or concatDatasets options, you can get array of arrays (of arrays) back
  * Requires bluebird dependency!!!
