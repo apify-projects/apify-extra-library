@@ -98,10 +98,11 @@ exports.bufferDataset = (dataset, options = {}) => {
  * @param {number} options.batchSize
  * @param {boolean} options.concatItems
  * @param {boolean} options.concatDatasets
+ * @param {boolean} options.fields
  */
 
 module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
-    const { parallelLoads = 20, batchSize = 50000, concatItems = true, concatDatasets = true } = options;
+    const { parallelLoads = 20, batchSize = 50000, concatItems = true, concatDatasets = true, fields } = options;
 
     // This is array of arrays. Top level array is for each dataset and inside one entry for each batch (in order)
     let loadedBatchedArr = [];
@@ -133,6 +134,7 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
                 datasetId,
                 offset: requestInfoObj.offset,
                 limit: batchSize,
+                fields,
             });
 
             totalLoadedPerDataset += items.length;
@@ -154,12 +156,12 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
 
     if (concatItems) {
         for (let i = 0; i < loadedBatchedArr.length; i++) {
-            loadedBatchedArr[i] = loadedBatchedArr[i].reduce((acc, items) => acc.concat(items));
+            loadedBatchedArr[i] = loadedBatchedArr[i].flatMap((item) => item);
         }
     }
 
     if (concatDatasets) {
-        loadedBatchedArr = loadedBatchedArr.reduce((acc, items) => acc.concat(items));
+        loadedBatchedArr = loadedBatchedArr.flatMap((item) => item);
     }
     return loadedBatchedArr;
 }
