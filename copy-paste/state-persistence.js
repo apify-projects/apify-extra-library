@@ -54,9 +54,10 @@ const persistedCall = async (kv) => {
     Apify.events.on('persistState', persistState);
 
     /**
-     * @param {string} actorName
-     * @param {any} [input]
-     * @param {any} [options]
+     * @param {string} actorName Actor name
+     * @param {any} [input] Any input to call the actor
+     * @param {any} [options] Same options are Apify.call options
+     * @param {string|null} [idempotencyKey] A string that can be used to distinguish calls with same inputs
      */
     const fn = async (actorName, input = {}, options = {}, idempotencyKey = Apify.getEnv().actorRunId) => {
         const inputHash = createHash('md5', { autoDestroy: true })
