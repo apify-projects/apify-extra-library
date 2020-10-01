@@ -7,20 +7,26 @@
     "example": "examples"
   },
   "scripts": {
-    "start": "node test.js"
+    "test": "node test.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/metalwarrior665/apify-utils.git"
   },
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/metalwarrior665/apify-utils/issues"
   },
   "homepage": "https://github.com/metalwarrior665/apify-utils#readme",
   "dependencies": {
-    "apify": "^0.21.3",
+    "apify": "^0.21.5",
     "bluebird": "^3.7.2"
+  },
+  "devDependencies": {
+    "@apify/eslint-config": "^0.1.1",
+    "@typescript-eslint/eslint-plugin": "^4.3.0",
+    "typescript": "^4.0.3",
+    "eslint": "^7.9.0"
   }
 }

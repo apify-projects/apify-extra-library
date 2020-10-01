@@ -9,7 +9,8 @@
       "es2018",
       "dom.iterable",
       "es2019.array",
-      "es2019.object"
+      "es2019.object",
+      "es2020.string"
     ],
     "strict": true,
     "checkJs": true,
