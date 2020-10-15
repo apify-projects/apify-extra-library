@@ -18,7 +18,7 @@ class ErrorManager {
      */
     async initialize() {
         this.errorState = (await Apify.getValue('ERROR-MANAGER-STATE')) || {};
-        Apify.events.on('persistState', this.persistState);
+        Apify.events.on('persistState', this.persistState.bind(this));
     }
 
     async persistState() {
