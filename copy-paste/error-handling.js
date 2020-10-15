@@ -28,6 +28,7 @@ class ErrorManager {
     /**
      * Provide a page or HTML used to snapshot and a closure to be called
      * Optionally, you can name the action for nicer logging, otherwise name of the error is used
+     * These functions can be nested, in that case only one screenshot is produced (for the bottom error)
      * @param {any} pageOrHtml
      * @param {() => void} actionFn
      * @param {string} [actionName]
