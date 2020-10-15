@@ -1,6 +1,11 @@
 // @ts-nocheck
 const Apify = require('apify');
 
+/**
+ * Utility class that allows you to wrap your functions
+ * with a try/catch that saves a screenshot on the first occurence
+ * of that error
+ */
 class ErrorManager {
     constructor() {
         this.errorState = {};
@@ -8,19 +13,24 @@ class ErrorManager {
         this.SNAPSHOT_PREFIX = 'ERROR-SNAPSHOT-';
     }
 
+    /**
+     * Loads from state and initializes events
+     */
     async initialize() {
         this.errorState = (await Apify.getValue('ERROR-MANAGER-STATE')) || {};
+        Apify.events.on('persistState', this.persistState);
     }
 
     async persistState() {
         await Apify.setValue('ERROR-MANAGER-STATE', this.errorState);
     }
 
-    // actionName is optional
     /**
+     * Provide a page or HTML used to snapshot and a closure to be called
+     * Optionally, you can name the action for nicer logging, otherwise name of the error is used
      * @param {any} pageOrHtml
      * @param {() => void} actionFn
-     * @param {string} actionName
+     * @param {string} [actionName]
      */
     async tryWithScreenshot(pageOrHtml, actionFn, actionName) {
         try {
@@ -48,7 +58,11 @@ class ErrorManager {
         }
     }
 
-    // Works for both HTML and Puppeteer Page
+    /**
+     * Works for both HTML and Puppeteer Page
+     * @param {*} pageOrHtml
+     * @param {string} errorKey
+     */
     async saveSnapshot(pageOrHtml, errorKey) {
         if (typeof pageOrHtml === 'string') {
             await Apify.setValue(`${this.SNAPSHOT_PREFIX}${errorKey}`, pageOrHtml, { contentType: 'text/html' });
