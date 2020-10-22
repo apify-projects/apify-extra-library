@@ -231,7 +231,7 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         }
         // We either collect the data or we process them on the fly
         if (processFn) {
-            await processFn(items);
+            await processFn(items, { datasetId, datasetOffset: requestInfoObj.offset });
         } else {
             if (!loadedBatchedArr[datasetIndex]) {
                 loadedBatchedArr[datasetIndex] = [];
