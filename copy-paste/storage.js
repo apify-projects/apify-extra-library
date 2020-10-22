@@ -80,12 +80,57 @@ exports.bufferDataset = (dataset, options = {}) => {
     };
 };
 
+// Returns either null if offset/limit does not fit the current chunk
+// or { offset, limit } object
+const calculateLocalOffsetLimit = ({ offset, limit, localStart, batchSize }) => {
+    // Offset starts after the current chunk
+    if (offset >= localStart + batchSize) {
+        return null;
+    }
+    // Offset + limit ends before our chunk
+    if (offset + limit <= localStart) {
+        return null;
+    }
+
+    // Now we know that the some data are in the current batch
+
+    const calculateLimit = () => {
+        // Calculating limit
+        const localEnd = localStart + batchSize;
+        const inputEnd = offset + limit;
+
+        // limit overflows current batch
+        if (inputEnd >= localEnd) {
+            // Now either the offset is less than local start and we do whole batch
+            if (offset < localStart) {
+                return batchSize;
+            }
+            // Or it is inside the current batch and we slice it from the start (including whole batch)
+            return localEnd - offset;
+        // eslint-disable-next-line no-else-return
+        } else { // Consider (inputEnd < localEnd) Means limit ends inside current batch
+            if (offset < localStart) {
+                return inputEnd - localStart;
+            }
+            // This means both offset and limit are inside current batch
+            return inputEnd - offset;
+        }
+    };
+
+    return {
+        offset: Math.max(localStart, offset),
+        limit: calculateLimit(),
+    };
+};
+
+module.exports.calculateLocalOffsetLimit = calculateLocalOffsetLimit;
+
 /**
  * Loads items from one or many datasets in parallel by chunking the items from each dataset into batches,
  * retaining order of both items and datasets. Useful for large loads.
  * By default returns one array of items in order of datasets provided.
  * By changing concatItems or concatDatasets options, you can get array of arrays (of arrays) back
- * Requires bluebird dependency!!!
+ * Requires bluebird dependency and copy calculateLocalOffsetLimit function!!!
  *
  * @param {string[]} datasetIds IDs of datasets you want to load
  * @param {object} options Options with default values.
@@ -94,16 +139,29 @@ exports.bufferDataset = (dataset, options = {}) => {
  * concatDatasets concat all datasets into one array of batches
  * Using both concatItems and concatDatasets gives you back a sinlge array of all items in order.
  * Both are true by default.
- * @param {Function} options.processFn Data are not returned by fed to the supplied function on the fly (reduces memory usage)
+ * @param {Function} options.processFn - Data are not returned by fed to the supplied async function on the fly (reduces memory usage)
  * @param {number} options.parallelLoads
  * @param {number} options.batchSize
+ * @param {number} options.offset=0
+ * @param {number} options.limit=999999999
  * @param {boolean} options.concatItems
  * @param {boolean} options.concatDatasets
  * @param {boolean} options.fields
+ * @param {boolean} options.debugLog
  */
 
 module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
-    const { processFn, parallelLoads = 20, batchSize = 50000, concatItems = true, concatDatasets = true, fields } = options;
+    const {
+        processFn,
+        parallelLoads = 20,
+        batchSize = 50000,
+        offset = 0,
+        limit = 999999999,
+        concatItems = true,
+        concatDatasets = true,
+        fields,
+        debugLog,
+    } = options;
 
     const loadStart = Date.now();
 
@@ -117,13 +175,18 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         for (const datasetId of datasetIds) {
             // We get the number of items first and then we precreate request info objects
             const { cleanItemCount } = await Apify.client.datasets.getDataset({ datasetId });
-            console.log(`Dataset ${datasetId} has ${cleanItemCount} items`);
+            if (debugLog) console.log(`Dataset ${datasetId} has ${cleanItemCount} items`);
             const numberOfBatches = Math.ceil(cleanItemCount / batchSize);
 
             for (let i = 0; i < numberOfBatches; i++) {
+                const localOffsetLimit = calculateLocalOffsetLimit({ offset, limit, localStart: i * batchSize, batchSize });
+                if (!localOffsetLimit) {
+                    continue;
+                }
                 requestInfoArr.push({
                     index: i,
-                    offset: i * batchSize,
+                    offset: localOffsetLimit.offset,
+                    limit: localOffsetLimit.limit,
                     datasetId,
                     datasetIndex,
                 });
@@ -142,14 +205,15 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
     const totalLoadedPerDataset = {};
 
     const requestInfoArr = await createRequestArray();
+    if (debugLog) console.log(`Number of requests to do: ${requestInfoArr.length}`);
 
     //  Now we execute all the requests in parallel (with defined concurrency)
     await Promise.map(requestInfoArr, async (requestInfoObj) => {
-        const { index, offset, datasetId, datasetIndex } = requestInfoObj;
+        const { index, datasetId, datasetIndex } = requestInfoObj;
         const { items } = await Apify.client.datasets.getItems({
             datasetId,
-            offset,
-            limit: batchSize,
+            offset: requestInfoObj.offset,
+            limit: requestInfoObj.limit,
             fields,
         });
 
@@ -160,14 +224,16 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         totalLoadedPerDataset[datasetId] += items.length;
         totalLoaded += items.length;
 
-        console.log(
-            `Items loaded from dataset ${datasetId}: ${items.length}, offset: ${requestInfoObj.offset},
-    total loaded from dataset ${datasetId}: ${totalLoadedPerDataset[datasetId]},
-    total loaded: ${totalLoaded}`,
-        );
+        if (debugLog) {
+            console.log(
+                `Items loaded from dataset ${datasetId}: ${items.length}, offset: ${requestInfoObj.offset},
+        total loaded from dataset ${datasetId}: ${totalLoadedPerDataset[datasetId]},
+        total loaded: ${totalLoaded}`,
+            );
+        }
         // We either collect the data or we process them on the fly
         if (processFn) {
-            processFn(items);
+            await processFn(items);
         } else {
             if (!loadedBatchedArr[datasetIndex]) {
                 loadedBatchedArr[datasetIndex] = [];
@@ -177,7 +243,7 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         }
     }, { concurrency: parallelLoads });
 
-    console.log(`Loading took ${Math.round((Date.now() - loadStart) / 1000)} seconds`);
+    if (debugLog) console.log(`Loading took ${Math.round((Date.now() - loadStart) / 1000)} seconds`);
 
     if (!processFn) {
         if (concatItems) {
@@ -192,7 +258,6 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         return loadedBatchedArr;
     }
 };
-
 
 /**
  * Intervaled dataset.pushData and provide a way to deduplicate

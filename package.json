@@ -7,7 +7,7 @@
     "example": "examples"
   },
   "scripts": {
-    "test": "node test.js"
+    "test": "mocha"
   },
   "repository": {
     "type": "git",
@@ -20,8 +20,10 @@
   },
   "homepage": "https://github.com/metalwarrior665/apify-utils#readme",
   "dependencies": {
+    "@types/mocha": "^8.0.3",
     "apify": "^0.21.5",
-    "bluebird": "^3.7.2"
+    "bluebird": "^3.7.2",
+    "mocha": "^8.2.0"
   },
   "devDependencies": {
     "@apify/eslint-config": "^0.1.1",
