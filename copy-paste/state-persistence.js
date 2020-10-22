@@ -1,3 +1,4 @@
+// @ts-nocheck
 const Apify = require('apify');
 const { createHash } = require('crypto');
 
@@ -90,6 +91,38 @@ const persistedCall = async (kv) => {
     };
 
     return fn;
+};
+
+/**
+ * Useful for pushing a large number of items at once
+ * where migration could introduce duplicates and consume extra CUs
+ * @param {string} outputDatasetIdOrName
+ * @param {Array<Object>} items
+ * @param {Object} options
+ * @param {number} options.uploadBatchSize
+ * @param {number} options.uploadSleepMs
+ */
+module.exports.persistedPushData = async (outputDatasetIdOrName, items, options = {}) => {
+    const { uploadBatchSize = 5000, uploadSleepMs = 1000 } = options;
+    let isMigrating = false;
+    Apify.events.on('migrating', () => { isMigrating = true; });
+
+    let pushedItemsCount = (await Apify.getValue(`STATE-PUSHED-COUNT-${outputDatasetIdOrName}`)) || 0;
+    const dataset = await Apify.openDataset(outputDatasetIdOrName);
+
+    for (let i = pushedItemsCount; i < items.length; i += uploadBatchSize) {
+        if (isMigrating) {
+            console.log('Forever sleeping until migration');
+            // Do nothing
+            await new Promise(() => {});
+        }
+        const itemsToPush = items.slice(i, i + uploadBatchSize);
+
+        await dataset.pushData(itemsToPush);
+        pushedItemsCount += itemsToPush.length;
+        await Apify.setValue('PUSHED', pushedItemsCount);
+        await Apify.utils.sleep(uploadSleepMs);
+    }
 };
 
 module.exports = {
