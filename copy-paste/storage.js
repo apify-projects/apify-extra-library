@@ -83,22 +83,20 @@ exports.bufferDataset = (dataset, options = {}) => {
 // Returns either null if offset/limit does not fit the current chunk
 // or { offset, limit } object
 const calculateLocalOffsetLimit = ({ offset, limit, localStart, batchSize }) => {
+    const localEnd = localStart + batchSize;
+    const inputEnd = offset + limit;
+
     // Offset starts after the current chunk
-    if (offset >= localStart + batchSize) {
+    if (offset >= localEnd) {
         return null;
     }
     // Offset + limit ends before our chunk
-    if (offset + limit <= localStart) {
+    if (inputEnd <= localStart) {
         return null;
     }
 
     // Now we know that the some data are in the current batch
-
     const calculateLimit = () => {
-        // Calculating limit
-        const localEnd = localStart + batchSize;
-        const inputEnd = offset + limit;
-
         // limit overflows current batch
         if (inputEnd >= localEnd) {
             // Now either the offset is less than local start and we do whole batch
