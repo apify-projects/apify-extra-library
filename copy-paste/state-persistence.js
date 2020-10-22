@@ -96,13 +96,14 @@ const persistedCall = async (kv) => {
 /**
  * Useful for pushing a large number of items at once
  * where migration could introduce duplicates and consume extra CUs
- * @param {string} outputDatasetIdOrName
+ * Only first param is mandatory
  * @param {Array<Object>} items
+ * @param {string} [outputDatasetIdOrName]
  * @param {Object} options
  * @param {number} options.uploadBatchSize
  * @param {number} options.uploadSleepMs
  */
-module.exports.persistedPushData = async (outputDatasetIdOrName, items, options = {}) => {
+module.exports.persistedPushData = async (items, outputDatasetIdOrName, options = {}) => {
     const { uploadBatchSize = 5000, uploadSleepMs = 1000 } = options;
     let isMigrating = false;
     Apify.events.on('migrating', () => { isMigrating = true; });
