@@ -7,7 +7,7 @@ Why another repo when we already have great [SDK](https://sdk.apify.com/) and ma
 ## Structure
 This repo is split into two folders.
 - `copy-paste` are functions that you can directly copy into your `utils.js` file and use them.
-- `examples` are more complicated code samples that you might wanna adapt to your code
+- `examples` more complex use-cases that have more moving parts, like parsing sitemaps as streams, having a long-running express server inside Apify platform
 
 ## Some tricks we provide
 - **Parallel load of dataset items** (even from multiple datasets) - insanely fast :)
