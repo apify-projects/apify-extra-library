@@ -94,6 +94,7 @@ exports.bufferDataset = (dataset, options = {}) => {
  * concatDatasets concat all datasets into one array of batches
  * Using both concatItems and concatDatasets gives you back a sinlge array of all items in order.
  * Both are true by default.
+ * @param {Function} options.processFn Data are not returned by fed to the supplied function on the fly (reduces memory usage)
  * @param {number} options.parallelLoads
  * @param {number} options.batchSize
  * @param {boolean} options.concatItems
@@ -102,69 +103,96 @@ exports.bufferDataset = (dataset, options = {}) => {
  */
 
 module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
-    const { parallelLoads = 20, batchSize = 50000, concatItems = true, concatDatasets = true, fields } = options;
+    const { processFn, parallelLoads = 20, batchSize = 50000, concatItems = true, concatDatasets = true, fields } = options;
+
+    const loadStart = Date.now();
+
+    const createRequestArray = async () => {
+        // We increment for each dataset so we remember their order
+        let datasetIndex = 0;
+
+        // This array will be used to create promises to run in parallel
+        const requestInfoArr = [];
+
+        for (const datasetId of datasetIds) {
+            // We get the number of items first and then we precreate request info objects
+            const { cleanItemCount } = await Apify.client.datasets.getDataset({ datasetId });
+            console.log(`Dataset ${datasetId} has ${cleanItemCount} items`);
+            const numberOfBatches = Math.ceil(cleanItemCount / batchSize);
+
+            for (let i = 0; i < numberOfBatches; i++) {
+                requestInfoArr.push({
+                    index: i,
+                    offset: i * batchSize,
+                    datasetId,
+                    datasetIndex,
+                });
+            }
+
+            datasetIndex++;
+        }
+        return requestInfoArr;
+    };
 
     // This is array of arrays. Top level array is for each dataset and inside one entry for each batch (in order)
+    /** @type {any[]} */
     let loadedBatchedArr = [];
-    // We increment for each dataset so we remember their order
-    let datasetIndex = 0;
-    let totalLoaded = 0;
-    const loadStart = Date.now();
-    // Multiple datasets are not parallelized against each other yet
-    // TODO: Paralellize multiple datasets
-    for (const datasetId of datasetIds) {
-        loadedBatchedArr[datasetIndex] = [];
-        let totalLoadedPerDataset = 0;
-        // We get the number of items first and then we precreate request info objects
-        const { cleanItemCount } = await Apify.client.datasets.getDataset({ datasetId });
-        console.log(`Dataset ${datasetId} has ${cleanItemCount} items`);
-        const numberOfBatches = Math.ceil(cleanItemCount / batchSize);
 
-        const requestInfoArr = [];
-        for (let i = 0; i < numberOfBatches; i++) {
-            requestInfoArr.push({
-                index: i,
-                offset: i * batchSize,
-            });
+    let totalLoaded = 0;
+    const totalLoadedPerDataset = {};
+
+    const requestInfoArr = await createRequestArray();
+
+    //  Now we execute all the requests in parallel (with defined concurrency)
+    await Promise.map(requestInfoArr, async (requestInfoObj) => {
+        const { index, offset, datasetId, datasetIndex } = requestInfoObj;
+        const { items } = await Apify.client.datasets.getItems({
+            datasetId,
+            offset,
+            limit: batchSize,
+            fields,
+        });
+
+        if (!totalLoadedPerDataset[datasetId]) {
+            totalLoadedPerDataset[datasetId] = 0;
         }
 
-        // eslint-disable-next-line no-loop-func
-        await Promise.map(requestInfoArr, async (requestInfoObj) => {
-            const { items } = await Apify.client.datasets.getItems({
-                datasetId,
-                offset: requestInfoObj.offset,
-                limit: batchSize,
-                fields,
-            });
+        totalLoadedPerDataset[datasetId] += items.length;
+        totalLoaded += items.length;
 
-            totalLoadedPerDataset += items.length;
-            totalLoaded += items.length;
-
-            console.log(
-                `Items loaded from dataset ${datasetId}: ${items.length}, offset: ${requestInfoObj.offset},
-        total loaded from dataset ${datasetId}: ${totalLoadedPerDataset},
-        total loaded: ${totalLoaded}`,
-            );
-
+        console.log(
+            `Items loaded from dataset ${datasetId}: ${items.length}, offset: ${requestInfoObj.offset},
+    total loaded from dataset ${datasetId}: ${totalLoadedPerDataset[datasetId]},
+    total loaded: ${totalLoaded}`,
+        );
+        // We either collect the data or we process them on the fly
+        if (processFn) {
+            processFn(items);
+        } else {
+            if (!loadedBatchedArr[datasetIndex]) {
+                loadedBatchedArr[datasetIndex] = [];
+            }
             // Now we correctly assign the items into the main array
-            loadedBatchedArr[datasetIndex][requestInfoObj.index] = items;
-        }, { concurrency: parallelLoads });
+            loadedBatchedArr[datasetIndex][index] = items;
+        }
+    }, { concurrency: parallelLoads });
 
-        datasetIndex++;
-    }
     console.log(`Loading took ${Math.round((Date.now() - loadStart) / 1000)} seconds`);
 
-    if (concatItems) {
-        for (let i = 0; i < loadedBatchedArr.length; i++) {
-            loadedBatchedArr[i] = loadedBatchedArr[i].flatMap((item) => item);
+    if (!processFn) {
+        if (concatItems) {
+            for (let i = 0; i < loadedBatchedArr.length; i++) {
+                loadedBatchedArr[i] = loadedBatchedArr[i].flatMap((item) => item);
+            }
         }
-    }
 
-    if (concatDatasets) {
-        loadedBatchedArr = loadedBatchedArr.flatMap((item) => item);
+        if (concatDatasets) {
+            loadedBatchedArr = loadedBatchedArr.flatMap((item) => item);
+        }
+        return loadedBatchedArr;
     }
-    return loadedBatchedArr;
-}
+};
+
 
 /**
  * Intervaled dataset.pushData and provide a way to deduplicate
