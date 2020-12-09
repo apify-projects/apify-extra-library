@@ -1,3 +1,4 @@
+const { RequestQueue, Request } = require('apify');
 const Apify = require('apify');
 const Promise = require('bluebird');
 
@@ -23,6 +24,7 @@ const Promise = require('bluebird');
  */
 exports.bufferDataset = (dataset, options = {}) => {
     const { maxBufferSize = 500, verboseLog = false } = options;
+    /** @type {any[]} */
     let buffer = [];
 
     /**
@@ -246,6 +248,9 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
     if (!processFn) {
         if (concatItems) {
             for (let i = 0; i < loadedBatchedArr.length; i++) {
+                /**
+                 * @param {any} item
+                 */
                 loadedBatchedArr[i] = loadedBatchedArr[i].flatMap((item) => item);
             }
         }
@@ -379,4 +384,73 @@ exports.RateLimitedRQ = (rq) => {
             return added;
         },
     };
+};
+
+const md5 = require('md5');
+
+/**
+ * Requires md5 dependency
+ * Queue that consist of many internal queues to
+ * get over the request/s limit
+ * Supports only addRequest for deduping
+ * @example
+ * const splitQueue = await openSplitDedupQueue('my-q', 20);
+ *   for (let i = 0; i < 10; i++) {
+ *      const str = `${Math.random()}`;
+ *      let { wasAlreadyPresent } = await splitQueue.addRequest({ url: str });
+ *  }
+ *  console.dir(await splitQueue.getInfo());
+ * @param {string} name Base name of the queue, they are named name-0, name-1, etc.
+ * @param {number} queueCount=20 More queues allow higher speed
+ * @return {Promise<{ addRequest: function, getInfo: function, queues: Array<RequestQueue> }>} addRequest method and access to underlying queues (should not be needed)
+ */
+const openSplitDedupQueue = async (name, queueCount = 20) => {
+    /**
+     * @param {string | Buffer | number[]} uniqueKey
+     * @param {number} moduloBy
+     */
+    const getModuloHash = (uniqueKey, moduloBy) => {
+        const hash = md5(uniqueKey).slice(0, 4);
+        const parsedInt = parseInt(hash, 16);
+        return parsedInt % moduloBy;
+    };
+
+    /** @type RequestQueue[] */
+    const queues = [];
+    for (let i = 0; i < queueCount; i++) {
+        const queue = await Apify.openRequestQueue(`${name}-${i}`);
+        queues.push(queue);
+    }
+
+    /**
+     * Only supports url/uniqueKey now
+     * @param {Request} request
+     * @return {Promise<Apify.QueueOperationInfo>} queue add result
+     */
+    const addRequest = async (request) => {
+        const index = getModuloHash(request.uniqueKey || request.url, queueCount);
+        // console.log(`Adding ${request.url} to queue ${index}`);
+        return queues[index].addRequest(request);
+    }
+
+    /**
+     * Sums counts from all underlying queues
+     * @return {Promise<Apify.RequestQueueInfo>} Almost like Apify.RequestQueueInfo
+     */
+    const getInfo = async () => {
+        const counts = {
+            totalRequestCount: 0,
+            handledRequestCount: 0,
+            pendingRequestCount: 0,
+        };
+        for (const queue of queues) {
+            const queueInfo = await queue.getInfo();
+            counts.totalRequestCount += queueInfo.totalRequestCount;
+            counts.handledRequestCount += queueInfo.handledRequestCount;
+            counts.pendingRequestCount += queueInfo.pendingRequestCount;
+        }
+        return counts;
+    };
+
+    return { addRequest, getInfo, queues };
 };
