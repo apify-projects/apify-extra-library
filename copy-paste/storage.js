@@ -82,49 +82,6 @@ exports.bufferDataset = (dataset, options = {}) => {
     };
 };
 
-// Returns either null if offset/limit does not fit the current chunk
-// or { offset, limit } object
-const calculateLocalOffsetLimit = ({ offset, limit, localStart, batchSize }) => {
-    const localEnd = localStart + batchSize;
-    const inputEnd = offset + limit;
-
-    // Offset starts after the current chunk
-    if (offset >= localEnd) {
-        return null;
-    }
-    // Offset + limit ends before our chunk
-    if (inputEnd <= localStart) {
-        return null;
-    }
-
-    // Now we know that the some data are in the current batch
-    const calculateLimit = () => {
-        // limit overflows current batch
-        if (inputEnd >= localEnd) {
-            // Now either the offset is less than local start and we do whole batch
-            if (offset < localStart) {
-                return batchSize;
-            }
-            // Or it is inside the current batch and we slice it from the start (including whole batch)
-            return localEnd - offset;
-        // eslint-disable-next-line no-else-return
-        } else { // Consider (inputEnd < localEnd) Means limit ends inside current batch
-            if (offset < localStart) {
-                return inputEnd - localStart;
-            }
-            // This means both offset and limit are inside current batch
-            return inputEnd - offset;
-        }
-    };
-
-    return {
-        offset: Math.max(localStart, offset),
-        limit: calculateLimit(),
-    };
-};
-
-module.exports.calculateLocalOffsetLimit = calculateLocalOffsetLimit;
-
 /**
  * Loads items from one or many datasets in parallel by chunking the items from each dataset into batches,
  * retaining order of both items and datasets. Useful for large loads.
@@ -164,6 +121,47 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
     } = options;
 
     const loadStart = Date.now();
+
+    // Returns either null if offset/limit does not fit the current chunk
+    // or { offset, limit } object
+    const calculateLocalOffsetLimit = ({ offset, limit, localStart, batchSize }) => {
+        const localEnd = localStart + batchSize;
+        const inputEnd = offset + limit;
+
+        // Offset starts after the current chunk
+        if (offset >= localEnd) {
+            return null;
+        }
+        // Offset + limit ends before our chunk
+        if (inputEnd <= localStart) {
+            return null;
+        }
+
+        // Now we know that the some data are in the current batch
+        const calculateLimit = () => {
+            // limit overflows current batch
+            if (inputEnd >= localEnd) {
+                // Now either the offset is less than local start and we do whole batch
+                if (offset < localStart) {
+                    return batchSize;
+                }
+                // Or it is inside the current batch and we slice it from the start (including whole batch)
+                return localEnd - offset;
+            // eslint-disable-next-line no-else-return
+            } else { // Consider (inputEnd < localEnd) Means limit ends inside current batch
+                if (offset < localStart) {
+                    return inputEnd - localStart;
+                }
+                // This means both offset and limit are inside current batch
+                return inputEnd - offset;
+            }
+        };
+
+        return {
+            offset: Math.max(localStart, offset),
+            limit: calculateLimit(),
+        };
+    };
 
     const createRequestArray = async () => {
         // We increment for each dataset so we remember their order
