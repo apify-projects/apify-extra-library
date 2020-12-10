@@ -105,6 +105,10 @@ exports.bufferDataset = (dataset, options = {}) => {
  * @param {boolean} options.concatDatasets
  * @param {boolean} options.fields
  * @param {boolean} options.debugLog
+ * @param {boolean} options.persistLoadingStateForProcesFn=false
+ * Will not load batches that were already processed before migration, does nothing if processFn is not used.
+ * It does not persist the state inside processFn, that is a responsibillity of the caller (if needed)
+ * You must not manipulate input parameters (and underlying datasets) between migrations or this will break
  */
 
 module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
@@ -117,7 +121,8 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         concatItems = true,
         concatDatasets = true,
         fields,
-        debugLog,
+        debugLog = false,
+        persistLoadingStateForProcesFn = false,
     } = options;
 
     const loadStart = Date.now();
@@ -163,7 +168,8 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         };
     };
 
-    const createRequestArray = async () => {
+    // If we use processFnLoadingState, we skip requests that are done
+    const createRequestArray = async (processFnLoadingState) => {
         // We increment for each dataset so we remember their order
         let datasetIndex = 0;
 
@@ -171,6 +177,9 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         const requestInfoArr = [];
 
         for (const datasetId of datasetIds) {
+            if (processFnLoadingState && !processFnLoadingState[datasetId]) {
+                processFnLoadingState[datasetId] = {};
+            }
             // We get the number of items first and then we precreate request info objects
             const { cleanItemCount } = await Apify.client.datasets.getDataset({ datasetId });
             if (debugLog) console.log(`Dataset ${datasetId} has ${cleanItemCount} items`);
@@ -179,6 +188,12 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
             for (let i = 0; i < numberOfBatches; i++) {
                 const localOffsetLimit = calculateLocalOffsetLimit({ offset, limit, localStart: i * batchSize, batchSize });
                 if (!localOffsetLimit) {
+                    continue;
+                }
+                if (!processFnLoadingState[datasetId][localOffsetLimit.offset]) {
+                    processFnLoadingState[datasetId][localOffsetLimit.offset] = { done: false };
+                } else if (processFnLoadingState[datasetId][localOffsetLimit.offset].done) {
+                    console.log(`Batch for dataset ${datasetId}, offset: ${localOffsetLimit.offset} was already processed, skipping...`);
                     continue;
                 }
                 requestInfoArr.push({
@@ -202,7 +217,18 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
     let totalLoaded = 0;
     const totalLoadedPerDataset = {};
 
-    const requestInfoArr = await createRequestArray();
+    const processFnLoadingState = persistLoadingStateForProcesFn
+        ? ((await Apify.getValue('PROCESS-FN-LOADING-STATE')) || {})
+        : null;
+
+    // Apify.events doesn't work because this is different Apify instance
+    if (processFnLoadingState) {
+        setInterval(async () => {
+            await Apify.setValue('PROCESS-FN-LOADING-STATE', processFnLoadingState);
+        }, 15000);
+    }
+
+    const requestInfoArr = await createRequestArray(processFnLoadingState);
     if (debugLog) console.log(`Number of requests to do: ${requestInfoArr.length}`);
 
     //  Now we execute all the requests in parallel (with defined concurrency)
@@ -232,6 +258,9 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         // We either collect the data or we process them on the fly
         if (processFn) {
             await processFn(items, { datasetId, datasetOffset: requestInfoObj.offset });
+            if (processFnLoadingState) {
+                processFnLoadingState[datasetId][requestInfoObj.offset].done = true;
+            }
         } else {
             if (!loadedBatchedArr[datasetIndex]) {
                 loadedBatchedArr[datasetIndex] = [];
