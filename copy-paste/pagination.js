@@ -2,6 +2,7 @@
  * Useful when you need to split price filters
  * to overcome max pages shown for a cateogry
  * This just takes an object with min and max numbers and splits them into halves
+ * For full crawler example, check examples/crawler-with-filters
  *
  * @param {{ min: number, max: number }} filter
  */
