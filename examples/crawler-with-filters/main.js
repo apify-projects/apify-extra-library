@@ -6,7 +6,7 @@ const { createFilterUrl, getFiltersFromUrl, splitFilter } = require('./utils');
 Apify.main(async () => {
     // Actor setup things here
     // ...
-    const requestQueue = await Apify.createRequestQueue();
+    const requestQueue = await Apify.openRequestQueue();
     // And let's enqueue the pivot requests
     for (const { min, max } of PIVOT_PRICE_RANGES) {
         await requestQueue.addRequest({
