@@ -28,14 +28,20 @@ class ErrorManager {
     /**
      * Provide a page or HTML used to snapshot and a closure to be called
      * Optionally, you can name the action for nicer logging, otherwise name of the error is used
-     * These functions can be nested, in that case only one screenshot is produced (for the bottom error)
+     * These functions can be nested, in that case only one snapshot is produced (for the bottom error)
      * @param {any} pageOrHtml
-     * @param {() => void} actionFn
-     * @param {string} [actionName]
+     * @param {() => void} fn
+     * @param {object} options
+     * @param {string} options.name Optional name of the action
+     * @param {boolean} options.returnError Returns an Error instance instead of re-throwing it
      */
-    async tryWithScreenshot(pageOrHtml, actionFn, actionName) {
+    async tryWithSnapshot(pageOrHtml, fn, options = {}) {
+        if (typeof pageOrHtml !== 'string' && typeof pageOrHtml !== 'object') {
+            throw new Error('Try with snapshot: Wrong input! pageOrHtml must be Puppeteer page or HTML');
+        }
+        const { name, returnError } = options;
         try {
-            actionFn();
+            fn();
         } catch (e) {
             // If error starts with BASE_MESSAGE, it means it was another nested tryWithScreenshot
             // In that case we just re-throw and skip all state updates and screenshots
@@ -43,7 +49,7 @@ class ErrorManager {
                 throw e;
             }
             // Normalize error name
-            const errorKey = actionName || e.message.slice(0, 30).replace(/[^a-zA-Z0-9-_]/g, '-');
+            const errorKey = (name || e.message).slice(0, 30).replace(/[^a-zA-Z0-9-_]/g, '-');
 
             if (!this.errorState[errorKey]) {
                 this.errorState[errorKey] = 0;
@@ -54,7 +60,10 @@ class ErrorManager {
             if (this.errorState[errorKey] === 1) {
                 await this.saveSnapshot(pageOrHtml, errorKey);
             }
-            e.message = `${this.BASE_MESSAGE}: ${actionName || ''}. Detail error: ${e.message}`;
+            e.message = `${this.BASE_MESSAGE}${`: ${name}` || ''}. Error detail: ${e}`;
+            if (returnError) {
+                return e;
+            }
             throw e;
         }
     }
