@@ -9,6 +9,7 @@ const Puppeteer = require('puppeteer'); // eslint-disable-line
  * Wrappers can be infinitely nested, only the bottom error is counted.
  * We recommend wrapping your top level function (handlePageFunction).
  * All optionally wrapping few other sensitive blocks of code for namespacing.
+ * Usage in real code - https://github.com/drobnikj/crawler-google-places/blob/master/src/places_crawler.js#L171
  * @example
  * const errorSnapshotter = new ErrorSnapshotter();
  * // Sets inner state persistence
