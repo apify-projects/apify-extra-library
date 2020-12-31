@@ -10,6 +10,7 @@ This repo is split into two folders.
 - `examples` more complex use-cases that have more moving parts, like parsing sitemaps as streams, having a long-running express server inside Apify platform
 
 ## Some tricks we provide
+- **Error Snaphotter** - Automatically makes snapshots (screenshots + HTML) of unique errors and report how mnay times different errors occured. Very useful!
 - **Parallel load of dataset items** (even from multiple datasets) - insanely fast :)
 - **Dataset that buffers the items on pushData** - Saves overloading Apify dataset API
 - **Rate limited Request Queue** - Adding requests smartly slows itself on high loads instead of overloading Apify API

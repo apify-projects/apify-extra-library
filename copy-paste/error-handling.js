@@ -3,9 +3,24 @@ const Apify = require('apify');
 const Puppeteer = require('puppeteer'); // eslint-disable-line
 
 /**
- * Utility class that allows you to wrap your functions
- * with a try/catch that saves a screenshot on the first occurence
- * of that error
+ * Provides a wrapper for a function that saves its error messages if it fails.
+ * Error messages are counted and on the first ocurrence also saved as snapshots.
+ * Called blocks can be prefixed with a name for better namespacing
+ * Wrappers can be infinitely nested, only the bottom error is counted.
+ * We recommend wrapping your top level function (handlePageFunction).
+ * All optionally wrapping few other sensitive blocks of code for namespacing.
+ * @example
+ * const errorSnapshotter = new ErrorSnapshotter();
+ * // Sets inner state persistence
+ * await errorSnapshotter.initialize(Apify.events);
+ *
+ * const result = await errorSnapshotter.tryWithSnapshot(
+ *     page, // Or HTML
+ *     () => myFunc(myParams),
+ *     { maxErrorCharacters: 100, name: 'Pagination' } // Options
+ * )
+ *
+ * console.dir(errorSnapshotter.stats());
  */
 class ErrorSnapshotter {
     /**
@@ -22,6 +37,11 @@ class ErrorSnapshotter {
         this.errorState = {};
         this.BASE_MESSAGE = 'Operation failed';
         this.SNAPSHOT_PREFIX = 'ERROR-SNAPSHOT-';
+        this.KV_RECORD_KEY = 'ERROR-SNAPSHOTTER-STATE';
+    }
+
+    stats() {
+        return this.errorState;
     }
 
     /**
@@ -29,12 +49,12 @@ class ErrorSnapshotter {
      * @param {any} events
      */
     async initialize(events) {
-        this.errorState = /** @type {{[key: string]: number}} */ (await Apify.getValue('ERROR-SNAPSHOTTER-STATE')) || {};
+        this.errorState = /** @type {{[key: string]: number}} */ (await Apify.getValue(this.KV_RECORD_KEY)) || {};
         events.on('persistState', this.persistState.bind(this));
     }
 
     async persistState() {
-        await Apify.setValue('ERROR-SNAPSHOTTER-STATE', this.errorState);
+        await Apify.setValue(this.KV_RECORD_KEY, this.errorState);
     }
 
     /**
@@ -52,7 +72,7 @@ class ErrorSnapshotter {
      */
     async tryWithSnapshot(pageOrHtml, fn, options) {
         if (typeof pageOrHtml !== 'string' && typeof pageOrHtml !== 'object') {
-            throw new Error('Try with snapshot: Wrong input! pageOrHtml must be Puppeteer page or HTML');
+            throw new Error('Try with snapshot: Wrong input! pageOrHtml must be a Puppeteer page or an HTML');
         }
         const { name, returnError = false, maxErrorCharacters } = (options || {});
         try {
