@@ -17,7 +17,7 @@ module.exports.proxyConfiguration = async ({
     proxyConfig,
     required = true,
     force = Apify.isAtHome(),
-    blacklist = ['GOOGLE_SERP'],
+    blacklist = ['GOOGLESERP'],
     hint = []
 }) => {
     const configuration = await Apify.createProxyConfiguration(proxyConfig);
