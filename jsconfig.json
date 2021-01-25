@@ -20,6 +20,8 @@
     "allowSyntheticDefaultImports": false
   },
   "include": [
-    "./**/*.js"
+    "./copy-paste/*.js",
+    "./examples/*.js",
+    "./test/*.js"
   ]
 }
