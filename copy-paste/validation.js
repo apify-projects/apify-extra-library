@@ -23,7 +23,7 @@ module.exports.proxyConfiguration = async ({
     const configuration = await Apify.createProxyConfiguration(proxyConfig);
 
     // this works for custom proxyUrls
-    if (required) {
+    if (Apify.isAtHome() && required) {
         if (!configuration || (!configuration.usesApifyProxy && (!configuration.proxyUrls || !configuration.proxyUrls.length)) || !configuration.newUrl()) {
             throw new Error(`\n=======\nYou're required to provide a valid proxy configuration\n\n=======`);
         }
