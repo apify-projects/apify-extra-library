@@ -12,6 +12,7 @@ This repo is split into two folders.
 ## Some tricks we provide
 - **Error Snaphotter** - Automatically makes snapshots (screenshots + HTML) of unique errors and report how mnay times different errors occured. Very useful!
 - **Parallel load of dataset items** (even from multiple datasets) - insanely fast :)
+- **Auto-chunked Key Value Store records**
 - **Dataset that buffers the items on pushData** - Saves overloading Apify dataset API
 - **Rate limited Request Queue** - Adding requests smartly slows itself on high loads instead of overloading Apify API
 - **Price filter splitting** - Common functionality for sites that limit number of results
@@ -21,3 +22,5 @@ This repo is split into two folders.
 This repo is not intended as a package. The code here will be updated and restructured as we please.
 
 If you have any code samples that you would like to contribute, you are welcome to make a PR :)
+
+We plan to create a package with the most useful functions in the near future.
