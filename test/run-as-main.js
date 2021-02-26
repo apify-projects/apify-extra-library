@@ -2,9 +2,10 @@
 
 const Apify = require('Apify');
 
-const { loadDatasetItemsInParallel } = require('../copy-paste/storage');
+const { loadDatasetItemsInParallel, openChunkedRecordStore } = require('../copy-paste/storage');
 
 Apify.main(async () => {
+    /*
     const datasetIds = []; // Add your test datasets
     const options = {
         parallelLoads: 5,
@@ -17,4 +18,18 @@ Apify.main(async () => {
         debugLog: true,
     };
     await loadDatasetItemsInParallel(datasetIds, options);
+    */
+
+    const store = await Apify.openKeyValueStore();
+    const chunkedStore = await openChunkedRecordStore(store, { debugLog: true });
+    // Save some big array of data
+    const bigData = [];
+    for (let i = 0; i < 2000000; i++) {
+        bigData.push({ index: i });
+    }
+    await chunkedStore.setValue('ITEMS', bigData);
+    console.log('Data stored')
+    // Get bigData back
+    const loadedBigData = await chunkedStore.getValue('ITEMS');
+    console.log(`${loadedBigData.length} items loaded`);
 })

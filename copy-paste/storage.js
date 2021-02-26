@@ -3,6 +3,95 @@ const Apify = require('apify');
 const Promise = require('bluebird');
 
 /**
+ * Provides an easy way to store large arrays as a single record in KV Store
+ * Behind the scenes, this chunked store splits the array 
+ * and saves each chunk as a separate record with name of `${key}-${chunkIndex}`
+ * You need to lower the chunkSize if you have really huge items
+ * 
+ * This option is generally faster and cheaper than using large datasets
+ *
+ * @example
+ * // Use like normal Key Value store
+ * const store = await Apify.openKeyValueStore();
+ * const chunkedStore = await openChunkedRecordStore(store);
+ * // Save some big array of data
+ * await chunkedStore.setValue('ITEMS', bigData);
+ * // Get bigData back
+ * const loadedBigData = await chunkedStore.getValue('ITEMS');
+ *
+ * @param {Apify.KeyValueStore} store
+ * @param {object} options
+ * @param {number} [options.chunkSize=50000]
+ * @param {number} [options.concurrency=20]
+ * @param {boolean} [options.debugLog=false]
+ */
+module.exports.openChunkedRecordStore = async (store, options = {}) => {
+    const { chunkSize = 50000, concurrency = 20, debugLog = false } = options;
+    // TODO: Figure out if we can replicate bluebird concurrency without bluebird
+    // for now I will do less optimal solution with Promise.all each concurrency batch
+    /**
+     * @param {function[]} fns
+     */
+    const executeFnsSemiParallel = async (fns) => {
+        for (let i = 0; i < fns.length; i += concurrency) {
+            const sliceFns = fns.slice(i, i + concurrency);
+            if (debugLog) {
+                console.log(`Executing ${sliceFns.length} in parallel`);
+            }
+            await Promise.all(sliceFns.map(async (fn) => await fn()));
+            if (debugLog) {
+                console.log(`Finished executing ${sliceFns.length} in parallel`)
+            }
+        }
+    }
+    return {
+        /**
+         * @param {string} key
+         * @returns {Promise<any[]>} data
+         */
+        getValue: async (key) => {
+            /** @type {any[]} */
+            let data = [];
+            const keys = [];
+            await store.forEachKey((loadedKey) => {
+                const match = loadedKey.match(new RegExp(`${key}-\\d+`));
+                if (match) {
+                    keys.push(loadedKey);
+                }
+            });
+            if (debugLog) {
+                console.log(`Found ${keys.length} chunks in the Store`);
+            }
+            const fns = [];
+            for (let i = 0; i < keys.length; i ++) {
+                fns.push(async () => {
+                    const chunkKey = `${key}-${Math.ceil(i)}`;
+                    const chunkData = await store.getValue(chunkKey);
+                    data = data.concat(chunkData);
+                });
+            }
+            await executeFnsSemiParallel(fns);
+            return data;
+        },
+        /**
+         * @param {string} key
+         * @param {any[]} data
+         */
+        setValue: async (key, data) => {
+            if (!Array.isArray(data)) {
+                throw new Error(`ChunkedRecordStore can only store arrays, you provided type: ${typeof data}`);
+            }
+            const fns = [];
+            for (let i = 0; i < data.length; i += chunkSize) {
+                const dataChunk = data.slice(i, i + chunkSize);
+                fns.push(async () => store.setValue(`${key}-${Math.ceil(i / chunkSize)}`, dataChunk));
+            }
+            await executeFnsSemiParallel(fns);
+        }
+    }
+}
+
+/**
  * Provides a dataset-like object that pushes data to internal buffer
  * before pushing to real dataset to save API calls. Useful for large loads.
  * This implementation doesn't use KV store, it simply pushes the data on migration.
