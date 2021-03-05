@@ -1,5 +1,5 @@
 const Apify = require('apify');
-const Promise = require('bluebird');
+const bluebird = require('bluebird');
 const { createHash } = require('crypto');
 
 const { log } = Apify.utils;
@@ -219,6 +219,7 @@ const loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
     } = options;
 
     const loadStart = Date.now();
+    const client = Apify.newClient();
 
     // Returns either null if offset/limit does not fit the current chunk
     // or { offset, limit } object
@@ -274,7 +275,7 @@ const loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
                 processFnLoadingState[datasetId] = {};
             }
             // We get the number of items first and then we precreate request info objects
-            const { cleanItemCount } = await Apify.client.datasets.getDataset({ datasetId });
+            const { cleanItemCount } = await client.dataset(datasetId).get();
             if (debugLog) {
                 log.info(`Dataset ${datasetId} has ${cleanItemCount} items`);
             }
@@ -331,10 +332,9 @@ const loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
     }
 
     //  Now we execute all the requests in parallel (with defined concurrency)
-    await Promise.map(requestInfoArr, async (requestInfoObj) => {
+    await bluebird.map(requestInfoArr, async (requestInfoObj) => {
         const { index, datasetId, datasetIndex } = requestInfoObj;
-        const { items } = await Apify.client.datasets.getItems({
-            datasetId,
+        const { items } = await client.dataset(datasetId).listItems({
             offset: requestInfoObj.offset,
             limit: requestInfoObj.limit,
             fields,
@@ -541,7 +541,7 @@ const openSplitDedupQueue = async (name, queueCount = 20) => {
         return parsedInt % moduloBy;
     };
 
-    /** @type RequestQueue[] */
+    /** @type {Apify.RequestQueue[]} */
     const queues = [];
     for (let i = 0; i < queueCount; i++) {
         const queue = await Apify.openRequestQueue(`${name}-${i}`);
