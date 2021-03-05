@@ -1,38 +1,42 @@
 {
-  "name": "apify-utils",
-  "version": "1.0.0",
-  "description": "Why another repo when we already have great [SDK](https://sdk.apify.com/) and many examples? This repo contains either  - New features that may or may not land in the SDK once tested by time - Simple functions for specific use-cases that are too specific for the SDK (like price parsing)",
-  "main": "test.js",
-  "directories": {
-    "example": "examples"
-  },
-  "scripts": {
-    "start": "node test/run-as-main.js",
-    "test": "mocha"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/metalwarrior665/apify-utils.git"
-  },
-  "author": "",
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/metalwarrior665/apify-utils/issues"
-  },
-  "homepage": "https://github.com/metalwarrior665/apify-utils#readme",
-  "dependencies": {
-    "@types/md5": "^2.2.1",
-    "@types/mocha": "^8.0.3",
-    "apify": "^0.22.4",
-    "bluebird": "^3.7.2",
-    "md5": "^2.3.0",
-    "mocha": "^8.2.0"
-  },
-  "devDependencies": {
-    "@apify/eslint-config": "^0.1.1",
-    "@types/eslint": "^7.2.6",
-    "@typescript-eslint/eslint-plugin": "^4.3.0",
-    "eslint": "^7.9.0",
-    "typescript": "^4.0.3"
-  }
+    "name": "apify-utils",
+    "version": "0.21.11",
+    "description": "Why another repo when we already have great [SDK](https://sdk.apify.com/) and many examples? This repo contains either  - New features that may or may not land in the SDK once tested by time - Simple functions for specific use-cases that are too specific for the SDK (like price parsing)",
+    "main": "index.js",
+    "directories": {
+        "example": "examples",
+        "lib": "src"
+    },
+    "scripts": {
+        "start": "node test/run-as-main.js",
+        "test": "mocha"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/metalwarrior665/apify-utils.git"
+    },
+    "author": "",
+    "license": "Apache-2.0",
+    "bugs": {
+        "url": "https://github.com/metalwarrior665/apify-utils/issues"
+    },
+    "homepage": "https://github.com/metalwarrior665/apify-utils#readme",
+    "dependencies": {
+        "moment": "",
+        "bluebird": "^3.7.2"
+    },
+    "peerDependencies": {
+        "apify": "^0.21.11"
+    },
+    "devDependencies": {
+        "@types/node": "^14.14.31",
+        "@types/md5": "^2.2.1",
+        "@types/mocha": "^8.0.3",
+        "@apify/eslint-config": "^0.1.3",
+        "@types/eslint": "^7.2.6",
+        "@typescript-eslint/eslint-plugin": "^4.16.1",
+        "eslint": "^7.21.0",
+        "typescript": "^4.2.2",
+        "mocha": "^8.3.0"
+    }
 }

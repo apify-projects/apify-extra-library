@@ -10,22 +10,29 @@ const Apify = require('apify');
  * @property {boolean} [params.force] By default, it only do the checks on the platform. Force checking regardless where it's running
  * @property {string[]} [params.hint] Hint specific proxy groups that should be used, like SHADER or RESIDENTIAL
  *
+ * @example
+ *    const proxy = await proxyConfiguration({
+ *       proxyConfig: input.proxy,
+ *       blacklist: ['SHADER'],
+ *       hint: ['RESIDENTIAL']
+ *    });
+ *
  * @param {params} params
  * @returns {Promise<Apify.ProxyConfiguration | undefined>}
  */
-module.exports.proxyConfiguration = async ({
+const proxyConfiguration = async ({
     proxyConfig,
     required = true,
     force = Apify.isAtHome(),
     blacklist = ['GOOGLESERP'],
-    hint = []
+    hint = [],
 }) => {
     const configuration = await Apify.createProxyConfiguration(proxyConfig);
 
     // this works for custom proxyUrls
     if (Apify.isAtHome() && required) {
         if (!configuration || (!configuration.usesApifyProxy && (!configuration.proxyUrls || !configuration.proxyUrls.length)) || !configuration.newUrl()) {
-            throw new Error(`\n=======\nYou must use Apify proxy or custom proxy URLs\n\n=======`);
+            throw new Error('\n=======\nYou must use Apify proxy or custom proxy URLs\n\n=======');
         }
     }
 
@@ -45,4 +52,8 @@ module.exports.proxyConfiguration = async ({
     }
 
     return configuration;
-}
+};
+
+module.exports = {
+    proxyConfiguration,
+};

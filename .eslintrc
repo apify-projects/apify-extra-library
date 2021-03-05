@@ -1,0 +1,15 @@
+{
+    "extends": "@apify",
+    "globals": {
+        "describe": "readonly",
+        "test": "readonly",
+        "expect": "readonly",
+        "it": "readonly",
+        "afterAll": "readonly",
+        "jasmine": "readonly",
+        "jQuery": "readonly"
+    },
+    "rules": {
+        "max-len": 0
+    }
+}

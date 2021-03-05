@@ -54,8 +54,8 @@ Apify.main(async () => {
                 // Enqueue next page as long as possible
                 // Enqueue or scrape products normally
             }
-        }
+        },
     });
 
-    crawler.run();
+    await crawler.run();
 });

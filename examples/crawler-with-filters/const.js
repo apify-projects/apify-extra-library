@@ -1,4 +1,4 @@
-module.exports =  {
+module.exports = {
     // These is just an example, choose what makes sense for your site
     PIVOT_PRICE_RANGES: [
         { min: 0, max: 9.99 },

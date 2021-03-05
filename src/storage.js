@@ -1,13 +1,15 @@
-const { RequestQueue, Request } = require('apify');
 const Apify = require('apify');
 const Promise = require('bluebird');
+const { createHash } = require('crypto');
+
+const { log } = Apify.utils;
 
 /**
  * Provides an easy way to store large arrays as a single record in KV Store
- * Behind the scenes, this chunked store splits the array 
+ * Behind the scenes, this chunked store splits the array
  * and saves each chunk as a separate record with name of `${key}-${chunkIndex}`
  * You need to lower the chunkSize if you have really huge items
- * 
+ *
  * This option is generally faster and cheaper than using large datasets
  *
  * @example
@@ -25,7 +27,7 @@ const Promise = require('bluebird');
  * @param {number} [options.concurrency=20]
  * @param {boolean} [options.debugLog=false]
  */
-module.exports.openChunkedRecordStore = async (store, options = {}) => {
+const openChunkedRecordStore = async (store, options = {}) => {
     const { chunkSize = 50000, concurrency = 20, debugLog = false } = options;
     // TODO: Figure out if we can replicate bluebird concurrency without bluebird
     // for now I will do less optimal solution with Promise.all each concurrency batch
@@ -36,14 +38,14 @@ module.exports.openChunkedRecordStore = async (store, options = {}) => {
         for (let i = 0; i < fns.length; i += concurrency) {
             const sliceFns = fns.slice(i, i + concurrency);
             if (debugLog) {
-                console.log(`Executing ${sliceFns.length} in parallel`);
+                log.info(`Executing ${sliceFns.length} in parallel`);
             }
-            await Promise.all(sliceFns.map(async (fn) => await fn()));
+            await Promise.all(sliceFns.map(async (fn) => fn()));
             if (debugLog) {
-                console.log(`Finished executing ${sliceFns.length} in parallel`)
+                log.info(`Finished executing ${sliceFns.length} in parallel`);
             }
         }
-    }
+    };
     return {
         /**
          * @param {string} key
@@ -51,7 +53,7 @@ module.exports.openChunkedRecordStore = async (store, options = {}) => {
          */
         getValue: async (key) => {
             /** @type {any[]} */
-            let data = [];
+            const data = [];
             const keys = [];
             await store.forEachKey((loadedKey) => {
                 const match = loadedKey.match(new RegExp(`${key}-\\d+`));
@@ -60,14 +62,15 @@ module.exports.openChunkedRecordStore = async (store, options = {}) => {
                 }
             });
             if (debugLog) {
-                console.log(`Found ${keys.length} chunks in the Store`);
+                log.info(`Found ${keys.length} chunks in the Store`);
             }
             const fns = [];
-            for (let i = 0; i < keys.length; i ++) {
+            for (let i = 0; i < keys.length; i++) {
                 fns.push(async () => {
                     const chunkKey = `${key}-${Math.ceil(i)}`;
-                    const chunkData = await store.getValue(chunkKey);
-                    data = data.concat(chunkData);
+                    for (const chunk of await store.getValue(chunkKey)) {
+                        data.push(chunk);
+                    }
                 });
             }
             await executeFnsSemiParallel(fns);
@@ -87,9 +90,9 @@ module.exports.openChunkedRecordStore = async (store, options = {}) => {
                 fns.push(async () => store.setValue(`${key}-${Math.ceil(i / chunkSize)}`, dataChunk));
             }
             await executeFnsSemiParallel(fns);
-        }
-    }
-}
+        },
+    };
+};
 
 /**
  * Provides a dataset-like object that pushes data to internal buffer
@@ -111,7 +114,7 @@ module.exports.openChunkedRecordStore = async (store, options = {}) => {
  * @param {number} [options.maxBufferSize=500]
  * @param {boolean} [options.verboseLog]
  */
-exports.bufferDataset = (dataset, options = {}) => {
+const bufferDataset = (dataset, options = {}) => {
     const { maxBufferSize = 500, verboseLog = false } = options;
     /** @type {any[]} */
     let buffer = [];
@@ -126,7 +129,7 @@ exports.bufferDataset = (dataset, options = {}) => {
         const data = buffer;
         buffer = [];
         if (verboseLog) {
-            console.log(`Flushing buffer with size: ${data.length}`);
+            log.info(`Flushing buffer with size: ${data.length}`);
         }
         await dataset.pushData(data);
     };
@@ -180,27 +183,28 @@ exports.bufferDataset = (dataset, options = {}) => {
  *
  * @param {string[]} datasetIds IDs of datasets you want to load
  * @param {object} options Options with default values.
- * If both concatItems and concatDatasets are false, output of this function is an array of datasets containing arrays of batches containig array of items.
+ * If both concatItems and concatDatasets are false, output of this function is an array of datasets containing arrays
+ * of batches containig array of items.
  * concatItems concats all batches of one dataset into one array of items.
  * concatDatasets concat all datasets into one array of batches
  * Using both concatItems and concatDatasets gives you back a sinlge array of all items in order.
  * Both are true by default.
- * @param {Function} options.processFn - Data are not returned by fed to the supplied async function on the fly (reduces memory usage)
- * @param {number} options.parallelLoads
- * @param {number} options.batchSize
- * @param {number} options.offset=0
- * @param {number} options.limit=999999999
- * @param {boolean} options.concatItems
- * @param {boolean} options.concatDatasets
+ * @param {(items: any[], params: { datasetId: string, datasetOffset: number }) => Promise<void>} [options.processFn]
+ *  Data are not returned by fed to the supplied async function on the fly (reduces memory usage)
+ * @param {number} [options.parallelLoads]
+ * @param {number} [options.batchSize]
+ * @param {number} [options.offset=0]
+ * @param {number} [options.limit=999999999]
+ * @param {boolean} [options.concatItems]
+ * @param {boolean} [options.concatDatasets]
  * @param {boolean} options.fields
- * @param {boolean} options.debugLog
- * @param {boolean} options.persistLoadingStateForProcesFn=false
+ * @param {boolean} [options.debugLog]
+ * @param {boolean} [options.persistLoadingStateForProcesFn=false]
  * Will not load batches that were already processed before migration, does nothing if processFn is not used.
  * It does not persist the state inside processFn, that is a responsibillity of the caller (if needed)
  * You must not manipulate input parameters (and underlying datasets) between migrations or this will break
  */
-
-module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
+const loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
     const {
         processFn,
         parallelLoads = 20,
@@ -271,20 +275,24 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
             }
             // We get the number of items first and then we precreate request info objects
             const { cleanItemCount } = await Apify.client.datasets.getDataset({ datasetId });
-            if (debugLog) console.log(`Dataset ${datasetId} has ${cleanItemCount} items`);
+            if (debugLog) {
+                log.info(`Dataset ${datasetId} has ${cleanItemCount} items`);
+            }
             const numberOfBatches = Math.ceil(cleanItemCount / batchSize);
 
             for (let i = 0; i < numberOfBatches; i++) {
                 const localOffsetLimit = calculateLocalOffsetLimit({ offset, limit, localStart: i * batchSize, batchSize });
                 if (!localOffsetLimit) {
-                    continue;
+                    continue; // eslint-disable-line no-continue
                 }
+
                 if (!processFnLoadingState[datasetId][localOffsetLimit.offset]) {
                     processFnLoadingState[datasetId][localOffsetLimit.offset] = { done: false };
                 } else if (processFnLoadingState[datasetId][localOffsetLimit.offset].done) {
-                    console.log(`Batch for dataset ${datasetId}, offset: ${localOffsetLimit.offset} was already processed, skipping...`);
-                    continue;
+                    log.info(`Batch for dataset ${datasetId}, offset: ${localOffsetLimit.offset} was already processed, skipping...`);
+                    continue; // eslint-disable-line no-continue
                 }
+
                 requestInfoArr.push({
                     index: i,
                     offset: localOffsetLimit.offset,
@@ -318,7 +326,9 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
     }
 
     const requestInfoArr = await createRequestArray(processFnLoadingState);
-    if (debugLog) console.log(`Number of requests to do: ${requestInfoArr.length}`);
+    if (debugLog) {
+        log.info(`Number of requests to do: ${requestInfoArr.length}`);
+    }
 
     //  Now we execute all the requests in parallel (with defined concurrency)
     await Promise.map(requestInfoArr, async (requestInfoObj) => {
@@ -338,7 +348,7 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         totalLoaded += items.length;
 
         if (debugLog) {
-            console.log(
+            log.info(
                 `Items loaded from dataset ${datasetId}: ${items.length}, offset: ${requestInfoObj.offset},
         total loaded from dataset ${datasetId}: ${totalLoadedPerDataset[datasetId]},
         total loaded: ${totalLoaded}`,
@@ -359,7 +369,9 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         }
     }, { concurrency: parallelLoads });
 
-    if (debugLog) console.log(`Loading took ${Math.round((Date.now() - loadStart) / 1000)} seconds`);
+    if (debugLog) {
+        log.info(`Loading took ${Math.round((Date.now() - loadStart) / 1000)} seconds`);
+    }
 
     if (!processFn) {
         if (concatItems) {
@@ -387,7 +399,7 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
  * @param {Apify.Dataset} dataset
  * @param {number} [limit]
  */
-exports.intervalPushData = async (dataset, limit = 50000) => {
+const intervalPushData = async (dataset, limit = 50000) => {
     const data = new Map(await Apify.getValue('PENDING_PUSH'));
     await Apify.setValue('PENDING_PUSH', []);
     let shouldPush = true;
@@ -465,7 +477,7 @@ exports.intervalPushData = async (dataset, limit = 50000) => {
  *
  * @param {Apify.RequestQueue} rq
  */
-exports.RateLimitedRQ = (rq) => {
+const rateLimitedRQ = (rq) => {
     let concurrentWrites = 0;
 
     const currentSleepValue = () => (concurrentWrites || 1) * (Math.round(Math.log10(concurrentWrites || 1)) || 1);
@@ -502,10 +514,7 @@ exports.RateLimitedRQ = (rq) => {
     };
 };
 
-const md5 = require('md5');
-
 /**
- * Requires md5 dependency
  * Queue that consist of many internal queues to
  * get over the request/s limit
  * Supports only addRequest for deduping
@@ -518,7 +527,8 @@ const md5 = require('md5');
  *  console.dir(await splitQueue.getInfo());
  * @param {string} name Base name of the queue, they are named name-0, name-1, etc.
  * @param {number} queueCount=20 More queues allow higher speed
- * @return {Promise<{ addRequest: function, getInfo: function, queues: Array<RequestQueue> }>} addRequest method and access to underlying queues (should not be needed)
+ * @return {Promise<{ addRequest: function, getInfo: function, queues: Array<RequestQueue> }>}
+ *  addRequest method and access to underlying queues (should not be needed)
  */
 const openSplitDedupQueue = async (name, queueCount = 20) => {
     /**
@@ -526,7 +536,7 @@ const openSplitDedupQueue = async (name, queueCount = 20) => {
      * @param {number} moduloBy
      */
     const getModuloHash = (uniqueKey, moduloBy) => {
-        const hash = md5(uniqueKey).slice(0, 4);
+        const hash = createHash('md5', { autoDestroy: true }).update(uniqueKey).digest('hex').slice(0, 4);
         const parsedInt = parseInt(hash, 16);
         return parsedInt % moduloBy;
     };
@@ -547,7 +557,7 @@ const openSplitDedupQueue = async (name, queueCount = 20) => {
         const index = getModuloHash(request.uniqueKey || request.url, queueCount);
         // console.log(`Adding ${request.url} to queue ${index}`);
         return queues[index].addRequest(request);
-    }
+    };
 
     /**
      * Sums counts from all underlying queues
@@ -569,4 +579,13 @@ const openSplitDedupQueue = async (name, queueCount = 20) => {
     };
 
     return { addRequest, getInfo, queues };
+};
+
+module.exports = {
+    openSplitDedupQueue,
+    rateLimitedRQ,
+    intervalPushData,
+    loadDatasetItemsInParallel,
+    bufferDataset,
+    openChunkedRecordStore,
 };

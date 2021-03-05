@@ -2,7 +2,7 @@
 
 const Apify = require('Apify');
 
-const { loadDatasetItemsInParallel, openChunkedRecordStore } = require('../copy-paste/storage');
+const { loadDatasetItemsInParallel, openChunkedRecordStore } = require('../src/storage');
 
 Apify.main(async () => {
     /*
@@ -28,8 +28,8 @@ Apify.main(async () => {
         bigData.push({ index: i });
     }
     await chunkedStore.setValue('ITEMS', bigData);
-    console.log('Data stored')
+    console.log('Data stored');
     // Get bigData back
     const loadedBigData = await chunkedStore.getValue('ITEMS');
     console.log(`${loadedBigData.length} items loaded`);
-})
+});

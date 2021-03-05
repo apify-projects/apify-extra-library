@@ -6,7 +6,7 @@
  *
  * @param {{ min: number, max: number }} filter
  */
-exports.splitFilter = (filter) => {
+const splitFilter = (filter) => {
     const { min, max } = filter;
     if (min > max) {
         throw new Error(`WRONG FILTER - min(${min}) is greater than max(${max})`);
@@ -22,4 +22,8 @@ exports.splitFilter = (filter) => {
         max,
     };
     return [filterMin, filterMax];
+};
+
+module.exports = {
+    splitFilter,
 };

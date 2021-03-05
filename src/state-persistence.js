@@ -2,6 +2,8 @@
 const Apify = require('apify');
 const { createHash } = require('crypto');
 
+const { log } = Apify.utils;
+
 /**
  * Create and return a Map that is persisted to KV on 'persistState'
  * and can be persisted manually calling `await persistState()`
@@ -103,7 +105,7 @@ const persistedCall = async (kv) => {
  * @param {number} options.uploadBatchSize
  * @param {number} options.uploadSleepMs
  */
-module.exports.persistedPushData = async (items, outputDatasetIdOrName, options = {}) => {
+const persistedPushData = async (items, outputDatasetIdOrName, options = {}) => {
     const { uploadBatchSize = 5000, uploadSleepMs = 1000 } = options;
     let isMigrating = false;
     Apify.events.on('migrating', () => { isMigrating = true; });
@@ -113,7 +115,7 @@ module.exports.persistedPushData = async (items, outputDatasetIdOrName, options 
 
     for (let i = pushedItemsCount; i < items.length; i += uploadBatchSize) {
         if (isMigrating) {
-            console.log('Forever sleeping until migration');
+            log.info('Forever sleeping until migration');
             // Do nothing
             await new Promise(() => {});
         }
@@ -129,4 +131,5 @@ module.exports.persistedPushData = async (items, outputDatasetIdOrName, options 
 module.exports = {
     persistedCall,
     createPersistedMap,
+    persistedPushData,
 };

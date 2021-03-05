@@ -12,4 +12,6 @@ const userAgent = () => {
     return UAs[Math.round(Math.random() * 100) % UAs.length];
 };
 
-exports.userAgent = userAgent;
+module.exports = {
+    userAgent,
+};
