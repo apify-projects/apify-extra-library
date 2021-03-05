@@ -36,6 +36,13 @@ console.log(browser.userAgent());
 - **Price filter splitting** - Common functionality for sites that limit number of results
 - **Parsing and time functions**
 
+## Versioning
+
+This library don't follow semver, and new versions will follow Apify SDK versions.
+
+For code compatible with SDK 0.21.11 and below, use the `0.21.11` tag
+For code compatible with SDK 0.22.0 and 1.0.0+, use `1.0.0` tag
+
 ## License
 
 Apache 2.0
