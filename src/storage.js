@@ -581,6 +581,138 @@ const openSplitDedupQueue = async (name, queueCount = 20) => {
     return { addRequest, getInfo, queues };
 };
 
+/**
+ * Distributes items evenly between many internal map instances, that
+ * can be persisted to the KV store on demand. Acts as a
+ * transparent Map instance.
+ *
+ * Used to overcome the 9MB limit of the key value store when
+ * serializing big objects or arrays.
+ *
+ * Does nothing when not initialized
+ *
+ * @example
+ *   const kv = await roundRobinKV(await Apify.openKeyValueStore('NAMED-KV'));
+ *   await kv.initialize();
+ *
+ *   for (let i = 0; i < 10000; i++) {
+ *      kv.set(`key${i}`, { value: `content ${i}` });
+ *   }
+ *
+ *   await kv.persistState(); // if you do not kv.initialize(), this call won't save anything to the store
+ *
+ *   // NAMED-KV will have 5 keys as RR-STORE-0, RR-STORE-1, ... after this call
+ *   // and each KV will have 2000 items each.
+ *
+ * @param {Apify.KeyValueStore} store
+ * @param {object} options
+ * @param {number} [options.splitSize=5]
+ * @param {string} [options.prefix]
+ */
+const roundRobinKV = async (store, options = {}) => {
+    const { splitSize = 5, prefix = '' } = options;
+
+    const prefixStr = (/** @type {number} */id) => `${prefix || 'RR-STORE'}-${id}`;
+
+    /**
+     * @type {Array<Map<string, any>>}
+     */
+    const maps = new Array(splitSize).fill(0).map(() => new Map());
+    let currentIndex = 0;
+    let initialized = false;
+
+    return {
+        async initialize() {
+            for (let i = 0; i < splitSize; i++) {
+                if (!(await store.getValue(`${prefixStr(i)}`))) {
+                    await store.setValue(`${prefixStr(i)}`, []);
+                }
+
+                // overwrite empty Map with KV values
+                maps[i] = new Map((await store.getValue(`${prefixStr(i)}`)) || []);
+            }
+
+            initialized = true;
+        },
+        /**
+         * emulate .size getter
+         */
+        get size() {
+            return maps.reduce((out, map) => (out + map.size), 0);
+        },
+        /**
+         * @param {string} [key]
+         */
+        get(key) {
+            if (key === undefined) {
+                return undefined;
+            }
+
+            for (const map of maps) {
+                if (map.has(key)) {
+                    return map.get(key);
+                }
+            }
+
+            return undefined;
+        },
+        /**
+         * @param {string} [key]
+         */
+        has(key) {
+            if (key === undefined) {
+                return false;
+            }
+
+            for (const map of maps) {
+                if (map.has(key)) {
+                    return true;
+                }
+            }
+
+            return false;
+        },
+        values() {
+            return maps.flatMap((map) => [...map.values()]);
+        },
+        /**
+         * @param {string} [key]
+         * @param {any} [data]
+         */
+        set(key, data) {
+            if (key === undefined) {
+                return;
+            }
+
+            for (const map of maps) {
+                // if key already exists, keep it on the same map
+                if (map.has(key)) {
+                    map.set(key, data);
+                    return;
+                }
+            }
+
+            if (currentIndex >= splitSize) {
+                currentIndex = 0;
+            }
+
+            maps[currentIndex++].set(key, data);
+        },
+        /**
+         * Persist each internal map to a different key, one by one
+         */
+        async persistState() {
+            if (!initialized) {
+                return;
+            }
+
+            for (let i = 0; i < splitSize; i++) {
+                await store.setValue(`${prefixStr(i)}`, [...maps[i].entries()]);
+            }
+        },
+    };
+};
+
 module.exports = {
     openSplitDedupQueue,
     rateLimitedRQ,
@@ -588,4 +720,5 @@ module.exports = {
     loadDatasetItemsInParallel,
     bufferDataset,
     openChunkedRecordStore,
+    roundRobinKV,
 };
