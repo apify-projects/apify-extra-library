@@ -12,7 +12,7 @@ Add this repository to your package.json:
 {
     "dependencies": {
         // ...
-        "apify-utils": "https://github.com/metalwarrior665/apify-utils.git#1.0.0"
+        "apify-utils": "https://github.com/metalwarrior665/apify-utils.git#1.0.1"
     }
 }
 ```
