@@ -1,6 +1,7 @@
 const Apify = require('apify');
 const bluebird = require('bluebird');
 const { createHash } = require('crypto');
+const { Sema } = require('async-sema');
 
 const { log } = Apify.utils;
 
@@ -713,6 +714,74 @@ const roundRobinKV = async (store, options = {}) => {
     };
 };
 
+/**
+ * @typedef {{
+ *   close: () => void,
+ *   addRequest: (request: Apify.RequestOptions) => void,
+ * }} StreamRequestList
+ */
+
+/**
+ * A request queue that works more like a mix of RequestList and a Node.JS stream.
+ * You push items to it, and it will push it to the crawler that is running undefinitely until
+ * you close it.
+ *
+ * Monkeypatches the original RequestList inner workings to achieve this.
+ * Supports persisting like RequestList does to survive migrations.
+ *
+ * This effectively bypasses issuing RequestQueue fetchNext requests
+ *
+ * @param {string} name
+ * @returns {Promise<Apify.RequestList & StreamRequestList>}
+ */
+const streamRequestList = async (name = 'STREAM') => {
+    /** @type {Apify.RequestList & StreamRequestList} */
+    const rl = await Apify.openRequestList(name, []);
+    let closed = false;
+
+    const semaphore = new Sema(
+        1,
+        {
+            capacity: 1,
+        },
+    );
+
+    rl.isFinished = async function () {
+        return closed;
+    };
+
+    rl.isEmpty = async function () {
+        return closed;
+    };
+
+    const originalFetchNext = rl.fetchNextRequest.bind(rl);
+
+    rl.fetchNextRequest = async function () {
+        if (closed) {
+            return null;
+        }
+        await semaphore.acquire();
+        if (closed) {
+            return null;
+        }
+        const next = await originalFetchNext();
+        return next;
+    };
+
+    rl.addRequest = function (request) {
+        // eslint-disable-next-line no-underscore-dangle
+        rl._addRequest(request);
+        semaphore.release();
+    };
+
+    rl.close = function () {
+        closed = true;
+        semaphore.release();
+    };
+
+    return rl;
+};
+
 module.exports = {
     openSplitDedupQueue,
     rateLimitedRQ,
@@ -721,4 +790,5 @@ module.exports = {
     bufferDataset,
     openChunkedRecordStore,
     roundRobinKV,
+    streamRequestList,
 };

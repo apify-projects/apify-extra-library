@@ -8,7 +8,7 @@
         "lib": "src"
     },
     "scripts": {
-        "start": "node test/run-as-main.js",
+        "start": "node test/stream-queue.js",
         "test": "mocha"
     },
     "repository": {
@@ -23,10 +23,11 @@
     "homepage": "https://github.com/metalwarrior665/apify-utils#readme",
     "dependencies": {
         "moment": "^2.29.1",
+        "async-sema": "^3.1.0",
         "bluebird": "^3.7.2"
     },
     "peerDependencies": {
-        "apify": "^1.0.0"
+        "apify": "^1.0.2"
     },
     "devDependencies": {
         "@types/node": "^14.14.31",
