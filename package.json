@@ -1,5 +1,5 @@
 {
-    "name": "apify-utils",
+    "name": "@apify/utils",
     "version": "1.0.1",
     "description": "Why another repo when we already have great [SDK](https://sdk.apify.com/) and many examples? This repo contains either  - New features that may or may not land in the SDK once tested by time - Simple functions for specific use-cases that are too specific for the SDK (like price parsing)",
     "main": "index.js",

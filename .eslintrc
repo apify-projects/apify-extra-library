@@ -9,6 +9,9 @@
         "jasmine": "readonly",
         "jQuery": "readonly"
     },
+    "parserOptions": {
+        "ecmaVersion": 2020
+    },
     "rules": {
         "max-len": 0
     }

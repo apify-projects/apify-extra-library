@@ -43,17 +43,30 @@ const subString = (html, start, end, endOffset = 0, startOffset = 0) => {
 /**
  * Uses a BasicCrawler to get links from sitemaps XMLs
  *
+ * @example
+ *   const proxyConfiguration = await Apify.createProxyConfiguration();
+ *   const requestList = await requestListFromSitemaps({
+ *
+ *      sitemapUrls: [
+ *         'https://example.com/sitemap.xml',
+ *      ]
+ *   })
+ *
  * @param {{
  *  proxyConfiguration: Apify.ProxyConfiguration,
- *  sitemapUrls: string[]
+ *  sitemapUrls: string[],
+ *  timeout?: number,
+ *  maxConcurrency?: number
  * }} params
  */
-const requestListFromSitemaps = async ({ proxyConfiguration, sitemapUrls }) => {
+const requestListFromSitemaps = async ({ proxyConfiguration, timeout = 600, sitemapUrls, maxConcurrency = 1 }) => {
     const urls = new Set();
 
     const sitemapCrawler = new Apify.BasicCrawler({
         requestList: await Apify.openRequestList('SITEMAPS', sitemapUrls),
         useSessionPool: true,
+        maxConcurrency,
+        handleRequestTimeoutSecs: timeout,
         sessionPoolOptions: {
             persistStateKey: 'SITEMAPS_SESSION_POOL',
         },
@@ -63,7 +76,7 @@ const requestListFromSitemaps = async ({ proxyConfiguration, sitemapUrls }) => {
                 url: request.url,
                 useInsecureHttpParser: true,
                 ignoreSslErrors: true,
-                proxyUrl: proxyConfiguration.newUrl(session.id),
+                proxyUrl: proxyConfiguration?.newUrl(session.id),
             });
 
             log.debug(`Parsing sitemap ${request.url}`);
