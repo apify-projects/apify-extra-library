@@ -287,12 +287,14 @@ const loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
                 if (!localOffsetLimit) {
                     continue; // eslint-disable-line no-continue
                 }
-
-                if (!processFnLoadingState[datasetId][localOffsetLimit.offset]) {
-                    processFnLoadingState[datasetId][localOffsetLimit.offset] = { done: false };
-                } else if (processFnLoadingState[datasetId][localOffsetLimit.offset].done) {
-                    log.info(`Batch for dataset ${datasetId}, offset: ${localOffsetLimit.offset} was already processed, skipping...`);
-                    continue; // eslint-disable-line no-continue
+                   
+                if (processFnLoadingState) {
+                    if (!processFnLoadingState[datasetId][localOffsetLimit.offset]) {
+                        processFnLoadingState[datasetId][localOffsetLimit.offset] = { done: false };
+                    } else if (processFnLoadingState[datasetId][localOffsetLimit.offset].done) {
+                        log.info(`Batch for dataset ${datasetId}, offset: ${localOffsetLimit.offset} was already processed, skipping...`);
+                        continue; // eslint-disable-line no-continue
+                    }
                 }
 
                 requestInfoArr.push({
