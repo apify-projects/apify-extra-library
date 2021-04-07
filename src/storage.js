@@ -354,7 +354,7 @@ const bufferDataset = (dataset, options = {}) => {
         if (!Apify.isAtHome) {
             delete getDataOptions.fields;
         }
-        const { items } = await dataset.getData();
+        const { items } = await dataset.getData(getDataOptions);
 
         if (!totalLoadedPerDataset[datasetId]) {
             totalLoadedPerDataset[datasetId] = 0;
