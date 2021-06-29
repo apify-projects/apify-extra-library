@@ -44,7 +44,10 @@ class ParallelPersistedSet {
     }
 
     async _fillSetWithNewItems() {
-        const items = await loadDatasetItemsInParallel([this.datasetName], { offset: this.offset });
+        const items = await loadDatasetItemsInParallel(
+            [this.datasetName],
+            { offset: this.offset, useLocalDataset: true }, // Local option is needed for named dataset
+        );
 
         for (const item of items) {
             // We use direct add to Set here since we don't want to push those items
