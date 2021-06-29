@@ -403,6 +403,10 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         log.info(`Loading took ${Math.round((Date.now() - loadStart) / 1000)} seconds`);
     }
 
+    if (processFnLoadingState) {
+        await Apify.setValue('PROCESS-FN-LOADING-STATE', processFnLoadingState);
+    }
+
     if (!processFn) {
         if (concatItems) {
             for (let i = 0; i < loadedBatchedArr.length; i++) {
