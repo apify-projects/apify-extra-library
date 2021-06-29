@@ -206,7 +206,7 @@ const bufferDataset = (dataset, options = {}) => {
  * It does not persist the state inside processFn, that is a responsibillity of the caller (if needed)
  * You must not manipulate input parameters (and underlying datasets) between migrations or this will break
  */
- module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
+module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => {
     const {
         processFn,
         parallelLoads = 20,

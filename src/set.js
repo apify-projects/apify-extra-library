@@ -57,12 +57,16 @@ class ParallelPersistedSet {
     }
 
     async _pushData() {
-        const toPush = this.pushDataBuffer;
-        this.pushDataBuffer = [];
+        if (this.pushDataBuffer.length > 0) {
+            const toPush = this.pushDataBuffer;
+            this.pushDataBuffer = [];
 
-        const dataset = await Apify.openDataset(this.datasetName);
-        log.debug(`pushData: Pushing ${toPush.length} new unique keys`);
-        await dataset.pushData(toPush);
+            const dataset = await Apify.openDataset(this.datasetName);
+            log.debug(`pushData: Pushing ${toPush.length} new unique keys`);
+            await dataset.pushData(toPush);
+        } else {
+            log.debug(`pushData: Not pushing data, no new unique keys were added`);
+        }
     }
 
     async _initialize() {
