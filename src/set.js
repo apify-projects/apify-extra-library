@@ -72,8 +72,8 @@ class ParallelPersistedSet {
     async _initialize() {
         await this._fillSetWithNewItems();
 
-        this.writeSyncInterval = setInterval(this._pushData, this.writeSyncIntervalMs);
-        this.readSyncInterval = setInterval(this._fillSetWithNewItems, this.readSyncInterval);
+        this.writeSyncInterval = setInterval(this._pushData.bind(this), this.writeSyncIntervalMs);
+        this.readSyncInterval = setInterval(this._fillSetWithNewItems.bind(this), this.readSyncIntervalMs);
 
         log.debug(`initialize: Initialized read/write sync intervals`);
     }
