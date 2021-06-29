@@ -199,7 +199,7 @@ const bufferDataset = (dataset, options = {}) => {
  * @param {boolean} [options.concatItems]
  * @param {boolean} [options.concatDatasets]
  * @param {boolean} options.fields
- * @param {boolean} options.forceCloud Datasets will be always loaded from Apify could, even locally
+ * @param {boolean} options.useLocalDataset Datasets will be always loaded from Apify could, even locally
  * @param {boolean} [options.debugLog]
  * @param {boolean} [options.persistLoadingStateForProcesFn=false]
  * Will not load batches that were already processed before migration, does nothing if processFn is not used.
@@ -218,10 +218,11 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
         debugLog = false,
         persistLoadingStateForProcesFn = false,
         fields,
-        forceCloud = false,
+        // Figure out better name since this is useful for datasets by name on platform
+        useLocalDataset = false, // Will fetch/create datasets by id or name locally or on current account
     } = options;
 
-    if (!Apify.isAtHome && fields) {
+    if (!Apify.isAtHome() && fields) {
         log.warning('loadDatasetItemsInParallel - fields option does not work on local datasets');
     }
 
@@ -281,8 +282,13 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
                 processFnLoadingState[datasetId] = {};
             }
             // We get the number of items first and then we precreate request info objects
-            const dataset = await Apify.openDataset(datasetId, { forceCloud });
-            const { itemCount } = await dataset.getInfo();
+            let itemCount;
+            if (useLocalDataset) {
+                const dataset = await Apify.openDataset(datasetId);
+                itemCount = await dataset.getInfo().then((res) => res.itemCount);
+            } else {
+                itemCount = await Apify.newClient().dataset(datasetId).get().then((res) => res.itemCount);
+            }
             if (debugLog) {
                 log.info(`Dataset ${datasetId} has ${itemCount} items`);
             }
@@ -344,17 +350,25 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
     await bluebird.map(requestInfoArr, async (requestInfoObj) => {
         const { index, datasetId, datasetIndex } = requestInfoObj;
 
-        // This open should be cached
-        const dataset = await Apify.openDataset(datasetId, { forceCloud });
         const getDataOptions = {
             offset: requestInfoObj.offset,
             limit: requestInfoObj.limit,
             fields,
         };
-        if (!Apify.isAtHome) {
-            delete getDataOptions.fields;
+        let items;
+        if (useLocalDataset) {
+            // This open should be cached
+            const dataset = await Apify.openDataset(datasetId);
+
+            if (!Apify.isAtHome()) {
+                delete getDataOptions.fields;
+            }
+            items = await dataset.getData(getDataOptions)
+                .then((res) => res.items);
+        } else {
+            await Apify.newClient().dataset(datasetId).listItems(getDataOptions)
+                .then((res) => res.items);
         }
-        const { items } = await dataset.getData(getDataOptions);
 
         if (!totalLoadedPerDataset[datasetId]) {
             totalLoadedPerDataset[datasetId] = 0;
