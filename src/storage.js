@@ -366,7 +366,7 @@ module.exports.loadDatasetItemsInParallel = async (datasetIds, options = {}) => 
             items = await dataset.getData(getDataOptions)
                 .then((res) => res.items);
         } else {
-            await Apify.newClient().dataset(datasetId).listItems(getDataOptions)
+            items = await Apify.newClient().dataset(datasetId).listItems(getDataOptions)
                 .then((res) => res.items);
         }
 
