@@ -23,5 +23,5 @@
     "./copy-paste/*.js",
     "./examples/*.js",
     "./test/*.js"
-  ]
+, "examples/call-actors/call-actors.js"  ]
 }
