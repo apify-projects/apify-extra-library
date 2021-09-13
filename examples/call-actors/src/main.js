@@ -21,7 +21,10 @@ Apify.main(async () => {
     // If you want to call more runs with the same input, simply add an index to the input
     const sources = [];
     for (const actorInput of actorInputs) {
-        const hash = crypto.createHash('md5').update(JSON.stringify(actorInput)).digest('hex');
+        const hash = crypto
+            .createHash('md5')
+            .update(JSON.stringify(actorInput))
+            .digest('hex');
         const request = {
             // dummy URL
             url: 'http://example.com',
