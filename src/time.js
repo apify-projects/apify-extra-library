@@ -83,7 +83,7 @@ const toIsoDate = (dateLike, fallback) => {
 };
 
 /**
- * @param {*} value
+ * @param {any} value
  * @returns {moment.Moment | null}
  */
 const parseTimeUnit = (value) => {
@@ -91,7 +91,11 @@ const parseTimeUnit = (value) => {
         return null;
     }
 
-    const [, number, unit] = `${value}`.match(/^(\d+) (minute|second|day|hour|month|year|week)s?$/i) || [];
+    if (value === 'today' || value === 'yesterday') {
+        return (value === 'today' ? moment() : moment().subtract(1, 'day')).startOf('day');
+    }
+
+    const [, number, unit] = `${value}`.match(/^(\d+)\s?(minute|second|day|hour|month|year|week)s?$/i) || [];
 
     if (+number && unit) {
         return moment().subtract(+number, unit);
@@ -127,17 +131,16 @@ const minMaxDates = ({ min, max }) => {
          * cloned min date, if set
          */
         get minDate() {
-            return minDate ? minDate.clone() : null;
+            return minDate?.clone();
         },
         /**
          * cloned max date, if set
          */
         get maxDate() {
-            return maxDate ? maxDate.clone() : null;
+            return maxDate?.clone();
         },
         /**
          * compare the given date/timestamp to the time interval
-         * @param {string | number} time
          */
         compare(time) {
             const base = moment(time);
