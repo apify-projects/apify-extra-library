@@ -110,7 +110,8 @@ const persistedPushData = async (items, outputDatasetIdOrName, options = {}) => 
     let isMigrating = false;
     Apify.events.on('migrating', () => { isMigrating = true; });
 
-    let pushedItemsCount = (await Apify.getValue(`STATE-PUSHED-COUNT-${outputDatasetIdOrName}`)) || 0;
+    const kvRecordName = `STATE-PUSHED-COUNT-${outputDatasetIdOrName}`;
+    let pushedItemsCount = (await Apify.getValue(kvRecordName)) || 0;
     const dataset = await Apify.openDataset(outputDatasetIdOrName);
 
     for (let i = pushedItemsCount; i < items.length; i += uploadBatchSize) {
@@ -123,7 +124,7 @@ const persistedPushData = async (items, outputDatasetIdOrName, options = {}) => 
 
         await dataset.pushData(itemsToPush);
         pushedItemsCount += itemsToPush.length;
-        await Apify.setValue('PUSHED', pushedItemsCount);
+        await Apify.setValue(kvRecordName, pushedItemsCount);
         await Apify.utils.sleep(uploadSleepMs);
     }
 };
