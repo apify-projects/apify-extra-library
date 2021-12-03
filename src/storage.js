@@ -198,8 +198,8 @@ const bufferDataset = (dataset, options = {}) => {
  * @param {number} [options.limit=999999999]
  * @param {boolean} [options.concatItems]
  * @param {boolean} [options.concatDatasets]
- * @param {boolean} options.fields
- * @param {boolean} options.useLocalDataset Datasets will be always loaded from Apify could, even locally
+ * @param {string[]} [options.fields]
+ * @param {boolean} [options.useLocalDataset] Datasets will be always loaded from Apify could, even locally
  * @param {boolean} [options.debugLog]
  * @param {boolean} [options.persistLoadingStateForProcesFn=false]
  * Will not load batches that were already processed before migration, does nothing if processFn is not used.
