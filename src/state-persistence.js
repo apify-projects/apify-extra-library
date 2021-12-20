@@ -39,7 +39,7 @@ const createPersistedMap = async (storeName, recordKey) => {
  * @param {ReturnType<Apify.newClient>} client
  * @param {string} runId
  */
-export const waitForFinish = async (client, runId) => {
+const waitForFinish = async (client, runId) => {
     const run = client.run(runId);
 
     // eslint-disable-next-line no-constant-condition
@@ -77,7 +77,7 @@ export const waitForFinish = async (client, runId) => {
  *   const run = await callInstagram({ directUrls: ["https://www.instagram.com/p/"] });
  *   // run is Apify.ActorRun, containing id, defaultDatasetId, etc
  */
-export const persistedCall = async (
+const persistedCall = async (
     actorName,
     client = Apify.newClient(),
     keyValueStoreId = Apify.getEnv().defaultKeyValueStoreId,
@@ -185,4 +185,5 @@ module.exports = {
     persistedCall,
     createPersistedMap,
     persistedPushData,
+    waitForFinish,
 };
