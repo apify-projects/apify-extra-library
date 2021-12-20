@@ -34,6 +34,31 @@ const createPersistedMap = async (storeName, recordKey) => {
 };
 
 /**
+ * Better version of internal waitForFinish
+ *
+ * @param {ReturnType<Apify.newClient>} client
+ * @param {string} runId
+ */
+export const waitForFinish = async (client, runId) => {
+    const run = client.run(runId);
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        try {
+            const { status } = await run.get();
+            if (status !== 'RUNNING' && status !== 'READY') {
+                break;
+            }
+            await Apify.utils.sleep(1000);
+        } catch (e) {
+            Apify.utils.log.debug(e.message);
+
+            break;
+        }
+    }
+};
+
+/**
  * Make Apify.call idempotent.
  * Wraps the key value store of your choice and keeps the call
  * states there. Same inputs always yield the same call.
@@ -42,57 +67,84 @@ const createPersistedMap = async (storeName, recordKey) => {
  * more calls using the same input, since it defaults to the
  * current Run ID
  *
- * @param {Apify.KeyValueStore} kv
+ * @param {string} actorName
+ * @param {ReturnType<Apify.newClient>} [client]
+ * @param {ReturnType<Apify.newClient>} [keyValueStoreId] Uses the current run one
+ *
+ * @example
+ *   const callInstagram = persistedCall('jaroslavhejlek/instagram-scraper');
+ *
+ *   const run = await callInstagram({ directUrls: ["https://www.instagram.com/p/"] });
+ *   // run is Apify.ActorRun, containing id, defaultDatasetId, etc
  */
-const persistedCall = async (kv) => {
+export const persistedCall = async (
+    actorName,
+    client = Apify.newClient(),
+    keyValueStoreId = Apify.getEnv().defaultKeyValueStoreId,
+) => {
+    const kv = client.keyValueStore(keyValueStoreId);
+    const actor = client.actor(actorName);
+
     /**
-     * @type {Map<string, { runId: string, actorId: string }>}
+     * @type {Map<string, Apify.ActorRun>}
      */
-    const calls = new Map(await kv.getValue('CALLS'));
+    const calls = new Map((await kv.getRecord('CALLS').then((s) => s.value).catch(() => [])) ?? []);
+
+    // don't try to write all at once for all events
+    let persisting = false;
 
     const persistState = async () => {
-        await kv.setValue('CALLS', [...calls.entries()]);
+        if (!persisting) {
+            persisting = true;
+            await kv.setValue('CALLS', [...calls.entries()]);
+            persisting = false;
+        }
     };
 
     Apify.events.on('persistState', persistState);
+    Apify.events.on('migrating', persistState);
+    Apify.events.on('aborting', persistState);
 
     /**
-     * @param {string} actorName Actor name
-     * @param {any} [input] Any input to call the actor
-     * @param {any} [options] Same options are Apify.call options
+     * @param {Record<string, any>} [input] Any input to call the actor
+     * @param {Parameters<typeof Apify.call>[2]} [options] Same options are Apify.call options
      * @param {string|null} [idempotencyKey] A string that can be used to distinguish calls with same inputs
+     *
+     * @example
+     *   call({ ...yourInput }, { build: 'beta' }, 'run-2');
      */
-    const fn = async (actorName, input = {}, options = {}, idempotencyKey = Apify.getEnv().actorRunId) => {
+    return async (input = {}, options = {}, idempotencyKey = null) => {
         const inputHash = createHash('md5', { autoDestroy: true })
             .update(`${actorName}${JSON.stringify({ input, options })}${idempotencyKey}`)
             .digest('hex');
 
-        if (calls.has(inputHash)) {
-            const call = calls.get(inputHash);
+        const call = calls.get(inputHash);
 
-            return Apify.utils.waitForRunToFinish({
-                ...options,
-                ...call,
-            });
+        if (call?.id) {
+            await waitForFinish(
+                client,
+                call.id,
+            );
+
+            return call;
         }
 
-        const run = await Apify.call(actorName, input, { ...options, waitSecs: 0 });
-
-        calls.set(inputHash, {
-            runId: run.id,
-            actorId: run.actId,
+        const run = await actor.call(input, {
+            ...options,
+            waitSecs: 1, // this might make the next polling call to be already finished
         });
+
+        calls.set(inputHash, run);
 
         await persistState();
 
-        return Apify.utils.waitForRunToFinish({
-            actorId: run.actId,
-            runId: run.actId,
-            waitSecs: options.waitSecs,
-        });
-    };
+        await waitForFinish(
+            client,
+            run.id,
+        );
 
-    return fn;
+        return run;
+    };
 };
 
 /**

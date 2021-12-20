@@ -202,7 +202,7 @@ const bufferDataset = (dataset, options = {}) => {
  * @param {boolean} [options.useLocalDataset] Datasets will be always loaded from Apify could, even locally
  * @param {boolean} [options.debugLog]
  * @param {boolean} [options.persistLoadingStateForProcesFn=false]
- * @param {Apify.Client} [options.client]
+ * @param {ReturnType<Apify.newClient>} [options.client]
  * Will not load batches that were already processed before migration, does nothing if processFn is not used.
  * It does not persist the state inside processFn, that is a responsibillity of the caller (if needed)
  * You must not manipulate input parameters (and underlying datasets) between migrations or this will break
