@@ -152,13 +152,19 @@ const persistedCall = async (
  * where migration could introduce duplicates and consume extra CUs
  * Only first param is mandatory
  * @param {Array<Object>} items
- * @param {string} [outputDatasetIdOrName]
  * @param {Object} options
  * @param {number} options.uploadBatchSize
  * @param {number} options.uploadSleepMs
+ * @param {string} option.outputDatasetIdOrName
+ * @param {number} option.parallelPushes
  */
-const persistedPushData = async (items, outputDatasetIdOrName, options = {}) => {
-    const { uploadBatchSize = 5000, uploadSleepMs = 1000 } = options;
+const parallelPersistedPushData = async (items, options = {}) => {
+    const {
+        uploadBatchSize = 5000,
+        uploadSleepMs = 500,
+        outputDatasetIdOrName = null,
+        parallelPushes = 1,
+    } = options;
     let isMigrating = false;
     Apify.events.on('migrating', () => { isMigrating = true; });
 
@@ -174,9 +180,19 @@ const persistedPushData = async (items, outputDatasetIdOrName, options = {}) => 
         }
         const itemsToPush = items.slice(i, i + uploadBatchSize);
 
-        await dataset.pushData(itemsToPush);
+        const pushPromises = [];
+        const parallelizedBatchSize = Math.ceil(itemsToPush.length / parallelPushes);
+        for (let j = 0; j < parallelPushes; j++) {
+            const start = j * parallelizedBatchSize;
+            const end = (j + 1) * parallelizedBatchSize;
+            const parallelPushChunk = itemsToPush.slice(start, end);
+            pushPromises.push(dataset.pushData(parallelPushChunk));
+        }
+        // We must update it before awaiting the promises because the push can take time
+        // and migration can cut us off but the items will already be on the way to dataset
         pushedItemsCount += itemsToPush.length;
         await Apify.setValue(kvRecordName, pushedItemsCount);
+        await Promise.all(pushPromises);
         await Apify.utils.sleep(uploadSleepMs);
     }
 };
@@ -184,6 +200,6 @@ const persistedPushData = async (items, outputDatasetIdOrName, options = {}) => 
 module.exports = {
     persistedCall,
     createPersistedMap,
-    persistedPushData,
+    parallelPersistedPushData,
     waitForFinish,
 };
