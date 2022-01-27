@@ -197,6 +197,103 @@ const parallelPersistedPushData = async (items, options = {}) => {
     }
 };
 
+/**
+ * Locking mechanism for resources shared accross actor runs.
+ * This lock doesn't provide 100% guarante of safety from race condition
+ * which is not possible due to asynchronous and distributed nature of Apify platform.
+ * The lock relies on wait times before acquiring the lock so in case of dead slow Apify API
+ * it can malfunction
+ * 
+ * @example
+ * const lock = new Lock();
+ * await lock.init();
+ * const criticalSection = async () => {
+ *  // Do something that no one else can touch now
+ *  // At the end of this function, lock gets released
+ * }
+ * await lock.lockAndRunSection(criticalSection);
+ */
+class Lock {
+    constructor(options = {}) {
+        const {
+            storeName = 'LOCK',
+            instanceId = Apify.getEnv().actorRunId,
+            pollIntervalMs = 30000,
+            candidateWaitTimeMs = 10000,
+        } = options;
+        this.storeName = storeName;
+        this.instanceId = instanceId;
+        this.pollIntervalMs = pollIntervalMs;
+        this.candidateWaitTimeMs = candidateWaitTimeMs;
+        this.store = null;
+        this.isMigrating = false;
+        this.ourLocked = false;
+    }
+
+    async init() {
+        this.store = await Apify.openKeyValueStore(this.storeName);
+        Apify.events.on('migrating', async () => { await this.handleMigration(); });
+        Apify.events.on('aborting', async () => { await this.handleMigration(); });
+    }
+
+    async handleMigration() {
+        this.isMigrating = true;
+        if (this.ourLocked) {
+            await this.unlock();
+        }
+    }
+
+    async isLocked() {
+        const { locked } = await this.store.getValue('LOCKED');
+        return locked;
+    }
+
+    async unlock() {
+        await this.store.setValue('LOCKED', { locked: false });
+    }
+
+    async waitAsCandidate() {
+        await this.store.setValue('CANDIDATE', { instanceId: this.instanceId });
+        // We wait to see if no other instance acquired a candidate meanwhile
+        await Apify.utils.sleep(this.candidateWaitTimeMs);
+        const { instanceId } = await this.store.getValue('CANDIDATE');
+        return instanceId === this.instanceId;
+    }
+
+    async acquireLock() {
+        if (await this.isLocked()) {
+            return false;
+        }
+        if (!await this.waitAsCandidate()) {
+            return false;
+        }
+        if (this.isMigrating) {
+            await Apify.utils.sleep(99999);
+        }
+        this.ourLocked = true;
+        await this.store.setValue('LOCKED', { locked: true });
+        return true;
+    }
+
+    async lockAndRunSection(criticalSection) {
+        // We do linear backoff to prevent deadlock
+        let lockAttempts = 1;
+        for (;;) {
+            if (this.isMigrating) {
+                await Apify.utils.sleep(99999);
+            }
+            if (await this.acquireLock()) {
+                break;
+            }
+            await Apify.utils.sleep(this.pollIntervalMs * lockAttempts);
+            lockAttempts++;
+        }
+        // We have the lock now
+        await criticalSection();
+        await this.unlock();
+    }
+}
+
 module.exports = {
     persistedCall,
     createPersistedMap,
