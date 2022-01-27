@@ -203,7 +203,9 @@ const parallelPersistedPushData = async (items, options = {}) => {
  * which is not possible due to asynchronous and distributed nature of Apify platform.
  * The lock relies on wait times before acquiring the lock so in case of dead slow Apify API
  * it can malfunction
- * 
+ * This lock is also not a good option for high contention cases or
+ * when you cannot afford to wait candidateWaitTimeMs (10 sec) before executing critical section
+ *
  * @example
  * const lock = new Lock();
  * await lock.init();
@@ -267,6 +269,11 @@ class Lock {
         if (!await this.waitAsCandidate()) {
             return false;
         }
+        // We need to check lock again in case someone locks
+        // and someone else starts waitAsCandidate at the same time
+        if (await this.isLocked()) {
+            return false;
+        }
         if (this.isMigrating) {
             await Apify.utils.sleep(99999);
         }
@@ -275,9 +282,16 @@ class Lock {
         return true;
     }
 
+    /**
+     * Waits (infinitely) until it can acquire unlocked lock
+     * then locks it, runs critical sections and unlocks
+     * Unlocks and sleeps on actor migrations
+     * @param {function} criticalSection
+     */
     async lockAndRunSection(criticalSection) {
         // We do linear backoff to prevent deadlock
         let lockAttempts = 1;
+        // Looping until we acquire the lock
         for (;;) {
             if (this.isMigrating) {
                 await Apify.utils.sleep(99999);
