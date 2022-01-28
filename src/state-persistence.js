@@ -246,7 +246,7 @@ class Lock {
     }
 
     async isLocked() {
-        const { locked } = await this.store.getValue('LOCKED');
+        const { locked } = await this.store.getValue('LOCKED') || {};
         return locked;
     }
 
