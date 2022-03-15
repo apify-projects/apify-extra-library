@@ -59,92 +59,82 @@ const waitForFinish = async (client, runId) => {
 };
 
 /**
- * Make Apify.call idempotent.
- * Wraps the key value store of your choice and keeps the call
- * states there. Same inputs always yield the same call.
+ * Call as many runs as you need, the runs are matched via inputs
+ * so if you call the same input twice, it will wait the first call.
+ * You can just add a dummy value to the input if you want to run the same input again.
  *
- * Provide the idempotencyKey manually to be able to create
- * more calls using the same input, since it defaults to the
- * current Run ID
- *
- * @param {string} actorName
- * @param {ReturnType<Apify.newClient>} [client]
- * @param {ReturnType<Apify.newClient>} [keyValueStoreId] Uses the current run one
+ * @param {string} actorOrTaskNameOrId
+ * @param {inputs} inputs
+ * @param {object} options
+ * @param {number} options.maxConcurrency
+ * @param {string} options.kvStoreName
+ * @param {string} options.type
  *
  * @example
- *   const callInstagram = persistedCall('jaroslavhejlek/instagram-scraper');
- *
- *   const run = await callInstagram({ directUrls: ["https://www.instagram.com/p/"] });
- *   // run is Apify.ActorRun, containing id, defaultDatasetId, etc
+ * const inputsAndOptions = [{ input: { url: 'https://example.com } }];
+ * // Call the actor, it will call only once for the same input + options. Input and options are optional.
+ * const [runInfo] = await persistedParallelCall('me/my-actor', inputsAndOptions, { type: 'actor', maxConcurrency: 2 });
+ * // Get data from the dataset
+ * const { items } = await Apify.newClient().dataset(runInfo.defaultDatasetId).listItems();
  */
-const persistedCall = async (
-    actorName,
-    client = Apify.newClient(),
-    keyValueStoreId = Apify.getEnv().defaultKeyValueStoreId,
+const persistedParallelCall = async (
+    actorOrTaskNameOrId,
+    inputsAndOptions = [],
+    options = {},
 ) => {
-    const kv = client.keyValueStore(keyValueStoreId);
-    const actor = client.actor(actorName);
+    const { maxConcurrency = 10, kvStoreName, type = 'actor' } = options;
 
-    /**
-     * @type {Map<string, Apify.ActorRun>}
-     */
-    const calls = new Map((await kv.getRecord('CALLS').then((s) => s.value).catch(() => [])) ?? []);
+    const client = Apify.newClient();
+    const actorOrTaskClient = client[type](actorOrTaskNameOrId);
 
-    // don't try to write all at once for all events
-    let persisting = false;
+    const kvStore = await Apify.openKeyValueStore(kvStoreName);
 
-    const persistState = async () => {
-        if (!persisting) {
-            persisting = true;
-            await kv.setValue('CALLS', [...calls.entries()]);
-            persisting = false;
-        }
-    };
+    const callState = await kvStore.getValue('CALLS-STATE') || {};
 
-    Apify.events.on('persistState', persistState);
-    Apify.events.on('migrating', persistState);
-    Apify.events.on('aborting', persistState);
+    Apify.events.on('persistState', async () => {
+        await kvStore.setValue('CALLS-STATE', callState);
+    });
 
-    /**
-     * @param {Record<string, any>} [input] Any input to call the actor
-     * @param {Parameters<typeof Apify.call>[2]} [options] Same options are Apify.call options
-     * @param {string|null} [idempotencyKey] A string that can be used to distinguish calls with same inputs
-     *
-     * @example
-     *   call({ ...yourInput }, { build: 'beta' }, 'run-2');
-     */
-    return async (input = {}, options = {}, idempotencyKey = null) => {
-        const inputHash = createHash('md5', { autoDestroy: true })
-            .update(`${actorName}${JSON.stringify({ input, options })}${idempotencyKey}`)
+    const sources = inputsAndOptions.map(({ input, options}) => {
+        const callHash = createHash('md5', { autoDestroy: true })
+            .update(`${actorOrTaskNameOrId}${JSON.stringify({ input, options })}`)
             .digest('hex');
+        return {
+            url: 'https://example.com', // dummy
+            uniqueKey: callHash,
+            userData: { input, options },
+        };
+    });
 
-        const call = calls.get(inputHash);
+    // If we skip name, the store is not persisted which we want
+    // to be able to pick up resurrected runs
+    const requestList = await Apify.openRequestList(null, sources);
 
-        if (call?.id) {
-            await waitForFinish(
-                client,
-                call.id,
-            );
+    const crawler = new Apify.BasicCrawler({
+        requestList,
+        handleRequestTimeoutSecs: 99999,
+        maxConcurrency,
+        handleRequestFunction: async ({ request }) => {
+            const { uniqueKey } = request;
+            const { input = {}, options } = request.userData;
 
-            return call;
-        }
+            if (!callState[uniqueKey]) {
+                log.info(`Calling an actor/task with input hash: ${uniqueKey}`);
+                const runInfo = await actorOrTaskClient.start(input, options);
+                callState[uniqueKey] = runInfo;
+            }
 
-        const run = await actor.call(input, {
-            ...options,
-            waitSecs: 1, // this might make the next polling call to be already finished
-        });
+            log.info(`Waiting for run ${callState[uniqueKey].id} to finish`);
+            const runInfo = await client.run(callState[uniqueKey].id).waitForFinish();
+            log.info(`Run finished: ${callState[uniqueKey].id} with status ${runInfo.status}`);
+            callState[uniqueKey] = runInfo;
+        },
+    });
 
-        calls.set(inputHash, run);
+    await crawler.run();
+    await kvStore.setValue('CALLS-STATE', callState);
 
-        await persistState();
-
-        await waitForFinish(
-            client,
-            run.id,
-        );
-
-        return run;
-    };
+    return Object.values(callState);
 };
 
 /**
@@ -309,7 +299,7 @@ class Lock {
 }
 
 module.exports = {
-    persistedCall,
+    persistedParallelCall,
     createPersistedMap,
     parallelPersistedPushData,
     waitForFinish,
