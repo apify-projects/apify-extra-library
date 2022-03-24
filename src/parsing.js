@@ -3,6 +3,22 @@ const { load } = require('cheerio');
 
 const { requestAsBrowser, log } = Apify.utils;
 
+const numberAsCommaString = (num) => {
+    let str = '';
+    let currLen = 0;
+    const numStr = `${num}`;
+    for (let i = numStr.length - 1; i >= 0; i--) {
+        let char = numStr[i];
+        if (currLen === 3) {
+            char = `${char},`;
+            currLen = 0;
+        }
+        str = `${char}${str}`;
+        currLen++;
+    }
+    return str;
+};
+
 /**
  * Extracts a float from common price string. Removes commas, currency symbols and others.
  *
@@ -101,4 +117,5 @@ module.exports = {
     encodeUrl,
     parsePrice,
     requestListFromSitemaps,
+    numberAsCommaString,
 };
