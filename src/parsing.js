@@ -112,6 +112,44 @@ const requestListFromSitemaps = async ({ proxyConfiguration, timeout = 600, site
     return Apify.openRequestList('STARTURLS', [...urls.values()]);
 };
 
+const ast = require('abstract-syntax-tree');
+
+/**
+ * @param {string} scriptText
+ * @param {string} propertyKeyToFind
+ * @returns {object}
+ */
+const findObjectInScriptByPropertyKey = (scriptText, propertyKeyToFind) => {
+    const parsed = ast.parse(scriptText);
+    const objects = ast.find(parsed, 'ObjectExpression');
+    const foundObject = objects.find((object) => object.properties.some((property) => {
+        return property.key.value === propertyKeyToFind;
+    }));
+    const myJson = ast.generate(foundObject);
+    return JSON.parse(myJson);
+};
+
+/**
+ * Given JQuery/Cheerio handle, it finds an object in scripts in the HTML
+ * The object is found by searching for a property of the object or nested ones
+ * The property should be unique in the objects, otherwise it might not find the correct one
+ * @param {cheerio.Root} $
+ * @param {string} propertyToFind
+ * @returns {object}
+ */
+module.exports.findObjectInHtml = ($, propertyToFind) => {
+    const scripts = $(`script:contains(${propertyToFind})`);
+    if (scripts.length === 0) {
+        throw `Did not find any script with property: ${propertyToFind}`;
+    }
+    const scriptText = scripts.html();
+    try {
+        return findObjectInScriptByPropertyKey(scriptText, propertyToFind);
+    } catch (e) {
+        throw `Could not parse property: ${propertyToFind} from the script. Probably wrong HTML`;
+    }
+}
+
 module.exports = {
     subString,
     encodeUrl,
