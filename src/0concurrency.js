@@ -11,7 +11,7 @@ const isDoingNothing = async (crawler) => {
     }
 };
 
-const abortIfStuck = async (crawler) => {
+const abortIfStuck = async (crawler, state) => {
     const MAX_DOING_NOTHING_SECS = 60;
     const POLLING_INTERVAL_SECS = 5;
     let doingNothingInRowSecs = 0;
@@ -19,7 +19,7 @@ const abortIfStuck = async (crawler) => {
         await Apify.utils.sleep(POLLING_INTERVAL_SECS * 1000);
         // TODO: Clean this promise when the crawler naturally finishes
         // isStopped is only true after abort() is called
-        if (crawler.autoscaledPool?.isStopped) {
+        if (state.raceFinished || crawler.autoscaledPool?.isStopped) {
             return;
         }
         log.debug('0 Concurrency health check: Checking if the crawler is stuck at 0 concurrency');
@@ -39,8 +39,10 @@ const abortIfStuck = async (crawler) => {
 };
 
 module.exports.runAndProtect0Concurrency = async (crawler) => {
+    const state = { raceFinished: false };
     await Promise.race([
         crawler.run(),
-        abortIfStuck(crawler),
+        abortIfStuck(crawler, state),
     ]);
+    state.raceFinished = true;
 };
