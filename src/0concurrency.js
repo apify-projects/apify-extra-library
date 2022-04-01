@@ -17,8 +17,7 @@ const abortIfStuck = async (crawler, state) => {
     let doingNothingInRowSecs = 0;
     for (;;) {
         await Apify.utils.sleep(POLLING_INTERVAL_SECS * 1000);
-        // TODO: Clean this promise when the crawler naturally finishes
-        // isStopped is only true after abort() is called
+        // state gives us info if the Promise.race finished so we can clean up this function
         if (state.raceFinished || crawler.autoscaledPool?.isStopped) {
             return;
         }
