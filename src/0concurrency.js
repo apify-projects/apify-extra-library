@@ -5,7 +5,7 @@ const { log } = Apify.utils;
 const handleResurrect = async (crawler) => {
     const runId = Apify.getEnv().actorRunId;
     await Apify.addWebhook({
-        eventTypes: ['SUCCEEDED', 'ABORTED', 'FAILED'],
+        eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED', 'ACTOR.RUN.ABORTED'],
         requestUrl: `https://api.apify.com/v2/actor-runs/${runId}/resurrect?token=${Apify.getEnv().token}`,
     });
     await Apify.newClient().run(runId).abort({ gracefully: true });
