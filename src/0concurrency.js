@@ -8,7 +8,7 @@ const handleResurrect = async (crawler) => {
         eventTypes: ['SUCCEEDED', 'ABORTED', 'FAILED'],
         requestUrl: `https://api.apify.com/v2/actor-runs/${runId}/resurrect?token=${Apify.getEnv().token}`,
     });
-    await crawler.autoscaledPool.abort();
+    await Apify.newClient().run(runId).abort({ gracefully: true });
 };
 
 const handleAbort = async (crawler) => {
