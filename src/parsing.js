@@ -148,7 +148,7 @@ module.exports.findObjectInHtml = ($, propertyToFind) => {
     } catch (e) {
         throw `Could not parse property: ${propertyToFind} from the script. Probably wrong HTML`;
     }
-}
+};
 
 module.exports = {
     subString,

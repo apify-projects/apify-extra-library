@@ -83,50 +83,83 @@ const toIsoDate = (dateLike, fallback) => {
 };
 
 /**
- * @param {any} value
- * @returns {moment.Moment | null}
+ * Allows relative dates like `1 month` or `12 minutes`,
+ * yesterday and today.
+ * Parses unix timestamps in milliseconds and absolute dates in ISO format
+ *
+ * @param {string|number|Date} value
+ * @param {boolean} inTheFuture
  */
-const parseTimeUnit = (value) => {
+const parseTimeUnit = (value, inTheFuture) => {
     if (!value) {
         return null;
     }
 
-    if (value === 'today' || value === 'yesterday') {
-        return (value === 'today' ? moment() : moment().subtract(1, 'day')).startOf('day');
+    if (value instanceof Date) {
+        return moment.utc(value);
     }
 
-    const [, number, unit] = `${value}`.match(/^(\d+)\s?(minute|second|day|hour|month|year|week)s?$/i) || [];
+    switch (value) {
+        case 'today':
+        case 'yesterday': {
+            const startDate = (value === 'today' ? moment.utc() : moment.utc().subtract(1, 'day'));
 
-    if (+number && unit) {
-        return moment().subtract(+number, unit);
+            return inTheFuture
+                ? startDate.endOf('day')
+                : startDate.startOf('day');
+        }
+        default: {
+            // valid integer, needs to be typecast into a number
+            // non-milliseconds needs to be converted to milliseconds
+            if (+value == value) {
+                return moment.utc(+value / 1e10 < 1 ? +value * 1000 : +value, true);
+            }
+
+            const [, number, unit] = `${value}`.match(/^(\d+)\s?(minute|second|day|hour|month|year|week)s?$/i) || [];
+
+            if (+number && unit) {
+                return inTheFuture
+                    ? moment.utc().add(+number, unit)
+                    : moment.utc().subtract(+number, unit);
+            }
+        }
     }
 
-    return moment(value);
+    const date = moment.utc(value);
+
+    if (!date.isValid()) {
+        return null;
+    }
+
+    return date;
 };
 
 /**
+ * @typedef MinMax
+ * @property {number | string} [min]
+ * @property {number | string} [max]
+ */
+
+/**
  * @typedef {ReturnType<typeof minMaxDates>} MinMaxDates
- * @typedef {{ min?: number | string; max?: number | string; }} MinMax
  */
 
 /**
  * Generate a function that can check date intervals depending on the input
- *
- * @example
- *    const checkDate = minMaxDates({ min: '1 month', max: '2021-03-10' });
- *    checkDate.compare('2021-02-09');
- *
- * @param {MinMax} params
+ * @param {MinMax} param
  */
 const minMaxDates = ({ min, max }) => {
-    const minDate = parseTimeUnit(min);
-    const maxDate = parseTimeUnit(max);
+    const minDate = parseTimeUnit(min, false);
+    const maxDate = parseTimeUnit(max, true);
 
     if (minDate && maxDate && maxDate.diff(minDate) < 0) {
         throw new Error(`Minimum date ${minDate.toString()} needs to be less than max date ${maxDate.toString()}`);
     }
 
     return {
+        get isComparable() {
+            return !!minDate || !!maxDate;
+        },
         /**
          * cloned min date, if set
          */
@@ -140,10 +173,13 @@ const minMaxDates = ({ min, max }) => {
             return maxDate?.clone();
         },
         /**
-         * compare the given date/timestamp to the time interval
+         * compare the given date/timestamp to the time interval.
+         * never fails or throws.
+         *
+         * @param {string | number} time
          */
         compare(time) {
-            const base = moment(time);
+            const base = parseTimeUnit(time, false);
             return (minDate ? minDate.diff(base) <= 0 : true) && (maxDate ? maxDate.diff(base) >= 0 : true);
         },
     };
