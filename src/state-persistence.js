@@ -82,28 +82,34 @@ const persistedParallelCall = async (
     inputsAndOptions = [],
     options = {},
 ) => {
-    const { maxConcurrency = 10, kvStoreName, type = 'actor' } = options;
+    const { maxConcurrency = 1, kvStoreName, type = 'actor' } = options;
 
     const client = Apify.newClient();
     const actorOrTaskClient = client[type](actorOrTaskNameOrId);
 
-    const kvStore = await Apify.openKeyValueStore(kvStoreName);
+    const wholeBatchCallHashInProgress = createHash('md5');
 
-    const callState = await kvStore.getValue('CALLS-STATE') || {};
-
-    Apify.events.on('persistState', async () => {
-        await kvStore.setValue('CALLS-STATE', callState);
-    });
-
-    const sources = inputsAndOptions.map(({ input, options}) => {
-        const callHash = createHash('md5', { autoDestroy: true })
+    const sources = inputsAndOptions.map(({ input, options }) => {
+        const callHash = createHash('md5')
             .update(`${actorOrTaskNameOrId}${JSON.stringify({ input, options })}`)
             .digest('hex');
+        wholeBatchCallHashInProgress.update(callHash);
         return {
             url: 'https://example.com', // dummy
             uniqueKey: callHash,
             userData: { input, options },
         };
+    });
+
+    const wholeBatchCallHash = wholeBatchCallHashInProgress.digest('hex');
+
+    const kvStore = await Apify.openKeyValueStore(kvStoreName);
+    const recordKey = `UTILS_PERSISTED_CALL_STATE_${wholeBatchCallHash}`;
+
+    const callState = await kvStore.getValue(recordKey) || {};
+
+    Apify.events.on('persistState', async () => {
+        await kvStore.setValue(recordKey, callState);
     });
 
     // If we skip name, the store is not persisted which we want
@@ -114,6 +120,7 @@ const persistedParallelCall = async (
         requestList,
         handleRequestTimeoutSecs: 99999,
         maxConcurrency,
+        maxRequestRetries: 0,
         handleRequestFunction: async ({ request }) => {
             const { uniqueKey } = request;
             const { input = {}, options } = request.userData;
@@ -131,8 +138,12 @@ const persistedParallelCall = async (
         },
     });
 
+    // We don't want this crawler to bother logs or KV store
+    crawler.stats.persistState = async () => {};
+    crawler.log.info = () => {};
+
     await crawler.run();
-    await kvStore.setValue('CALLS-STATE', callState);
+    await kvStore.setValue(recordKey, callState);
 
     return Object.values(callState);
 };
