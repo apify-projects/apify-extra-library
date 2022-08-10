@@ -131,9 +131,9 @@ const persistedParallelCall = async (
                 callState[uniqueKey] = runInfo;
             }
 
-            log.info(`Waiting for run ${callState[uniqueKey].id} to finish`);
+            log.info(`persistedParallelCall[${actorOrTaskNameOrId}]: Waiting for run ${callState[uniqueKey].id} to finish`);
             const runInfo = await client.run(callState[uniqueKey].id).waitForFinish();
-            log.info(`Run finished: ${callState[uniqueKey].id} with status ${runInfo.status}`);
+            log.info(`persistedParallelCall[${actorOrTaskNameOrId}]: Run finished: ${callState[uniqueKey].id} with status ${runInfo.status}`);
             callState[uniqueKey] = runInfo;
         },
     });
