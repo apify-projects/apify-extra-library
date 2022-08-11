@@ -80,9 +80,9 @@ const waitForFinish = async (client, runId) => {
 const persistedParallelCall = async (
     actorOrTaskNameOrId,
     inputsAndOptions = [],
-    options = {},
+    thisOptions = {},
 ) => {
-    const { maxConcurrency = 1, kvStoreName, type = 'actor' } = options;
+    const { maxConcurrency = 1, kvStoreName, type = 'actor' } = thisOptions;
 
     const client = Apify.newClient();
     const actorOrTaskClient = client[type](actorOrTaskNameOrId);
