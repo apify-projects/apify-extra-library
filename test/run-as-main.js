@@ -2,7 +2,7 @@
 
 const Apify = require('Apify');
 
-const { loadDatasetItemsInParallel, openChunkedRecordStore } = require('../src/storage');
+const { loadDatasetItemsInParallel, openChunkedRecordStore } = require('../src-js/storage');
 
 Apify.main(async () => {
     /*

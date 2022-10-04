@@ -1,5 +1,5 @@
 const Apify = require('apify');
-const { streamRequestList } = require('../src/storage');
+const { streamRequestList } = require('../src-js/storage');
 
 Apify.main(async () => {
     const requestList = await streamRequestList();

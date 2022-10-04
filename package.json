@@ -1,21 +1,40 @@
 {
-    "name": "@apify/utils",
-    "version": "2.0.0",
-    "description": "Why another repo when we already have great [SDK](https://sdk.apify.com/) and many examples? This repo contains either  - New features that may or may not land in the SDK once tested by time - Simple functions for specific use-cases that are too specific for the SDK (like price parsing)",
-    "main": "index.js",
-    "directories": {
-        "example": "examples",
-        "lib": "src"
+    "name": "apify-extra",
+    "version": "0.0.1",
+    "description": "Advanced and experimental functionality for Apify Actors and Crawlee. Use with caution!",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./package.json": "./package.json"
+    },
+    "author": {
+        "name": "Apify",
+        "email": "support@apify.com",
+        "url": "https://apify.com"
     },
     "scripts": {
-        "start": "node test/request-list-from-sitemaps.js",
-        "test": "mocha"
+        "start": "npm run start:dev",
+        "build": "rimraf dist && tsc",
+        "test": "npm run test:unit && npm run test:e2e",
+        "test:unit": "jest --silent --runInBand ./test/unit",
+        "test:e2e": "jest --json ./test/e2e > test-results.json",
+        "postbuild": "gen-esm-wrapper dist/index.js dist/index.mjs && npm run copy-files",
+        "copy-files": "cp ./src/captcha-solver/solver.py ./dist/captcha-solver/solver.py",
+        "prepublishOnly": "npm run build",
+        "lint": "eslint src",
+        "lint:fix": "eslint src --fix",
+        "start-docs:dev": "cd website && npm i && npm start"
     },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/metalwarrior665/apify-utils.git"
     },
-    "author": "",
     "license": "Apache-2.0",
     "bugs": {
         "url": "https://github.com/metalwarrior665/apify-utils/issues"
@@ -24,10 +43,12 @@
     "dependencies": {
         "moment": "^2.29.1",
         "async-sema": "^3.1.0",
-        "bluebird": "^3.7.2"
+        "bluebird": "^3.7.2",
+        "got-scraping": "^3.2.9"
     },
     "peerDependencies": {
-        "apify": "*"
+        "apify": ">= 3.0.0",
+        "crawlee": ">= 3.0.0"
     },
     "devDependencies": {
         "@types/node": "^14.14.31",
@@ -35,9 +56,13 @@
         "@types/mocha": "^8.0.3",
         "@apify/eslint-config": "^0.1.3",
         "@types/eslint": "^7.2.6",
-        "@typescript-eslint/eslint-plugin": "^4.16.1",
-        "eslint": "^7.21.0",
-        "typescript": "^4.2.2",
-        "mocha": "^8.3.0"
+        "mocha": "^8.3.0",
+        "@apify/eslint-config-ts": "^0.2.3",
+        "@apify/tsconfig": "^0.1.0",
+        "@typescript-eslint/eslint-plugin": "^5.32.0",
+        "@typescript-eslint/parser": "^5.32.0",
+        "eslint": "^8.20.0",
+        "ts-node": "^10.9.1",
+        "typescript": "4.7.4"
     }
 }

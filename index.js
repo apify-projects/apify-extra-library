@@ -2,12 +2,12 @@
 
 // re-export all libraries
 module.exports = {
-    browser: require('./src/browser'),
-    errorHandling: require('./src/error-handling'),
-    pagination: require('./src/pagination'),
-    parsing: require('./src/parsing'),
-    statePersistance: require('./src/state-persistence'),
-    storage: require('./src/storage'),
-    time: require('./src/time'),
-    validation: require('./src/validation'),
+    browser: require('./src-js/browser'),
+    errorHandling: require('./src-js/error-handling'),
+    pagination: require('./src-js/pagination'),
+    parsing: require('./src-js/parsing'),
+    statePersistance: require('./src-js/state-persistence'),
+    storage: require('./src-js/storage'),
+    time: require('./src-js/time'),
+    validation: require('./src-js/validation'),
 };

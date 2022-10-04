@@ -1,0 +1,94 @@
+name: Check & Release
+
+on:
+    # Push to master will deploy a beta version
+    push:
+        branches: [ master ]
+    # PR to master branch will skip deployment
+    pull_request:
+        branches: [ master ]
+    # A release via GitHub releases will deploy the latest version
+    release:
+        types: [ published ]
+
+jobs:
+    # NPM install is done in a separate job and cached to speed up the following jobs.
+    build_and_test:
+        name: Build & Test
+        if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+        runs-on: ${{ matrix.os }}
+
+        strategy:
+            matrix:
+                os: [ ubuntu-latest ]
+                node-version: [ 16 ]
+
+        steps:
+            - name: Cancel Previous Workflows
+              uses: styfle/cancel-workflow-action@0.9.1
+              with:
+                access_token: ${{ github.token }}
+
+            - name: Checkout repository
+              uses: actions/checkout@v2
+
+            - name: Use Node.js ${{ matrix.node-version }}
+              uses: actions/setup-node@v2
+              with:
+                  node-version: ${{ matrix.node-version }}
+
+            - name: Build
+              run: npm run build
+
+            - name: Tests Unit
+              run: npm run test:unit
+            
+            - name: Tests E2E
+              run: npm run test:e2e
+              continue-on-error: true
+
+
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v2
+
+            - name: Use Node.js 16
+              uses: actions/setup-node@v2
+              with:
+                  node-version: 16
+
+            - name: Install Dependencies
+              run: npm i
+
+            - name: ESLint
+              run: npm run lint
+          
+    deploy:
+        name: Publish to Github packages
+        if: github.ref == 'refs/heads/master' || github.event_name == 'release'
+        needs: [ lint, build_and_test ]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/setup-node@v2
+              with:
+                  node-version: 16
+                  # registry-url: 'https://npm.pkg.github.com'
+            - name: Install Dependencies
+              run: npm install --force
+            # Determine if this is a beta or latest release
+            - name: Set Release Tag
+              run: echo "RELEASE_TAG=$(if [ ${{ github.event_name }} = release ]; then echo latest; else echo beta; fi)" >> $GITHUB_ENV
+            - name: Bump pre-release version
+              if: env.RELEASE_TAG == 'beta'
+              run: node ./.github/scripts/before-beta-release.js
+              env:
+                NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+            - name: Publish to GPR
+              env:
+                NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+              run: npm publish --tag ${{ env.RELEASE_TAG }}

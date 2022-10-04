@@ -1,18 +1,20 @@
 {
-    "extends": "@apify",
-    "globals": {
-        "describe": "readonly",
-        "test": "readonly",
-        "expect": "readonly",
-        "it": "readonly",
-        "afterAll": "readonly",
-        "jasmine": "readonly",
-        "jQuery": "readonly"
+    "root": true,
+    "env": {
+        "browser": true,
+        "es2020": true,
+        "node": true
     },
+    "extends": [
+        "@apify/eslint-config-ts"
+    ],
     "parserOptions": {
+        "project": "./tsconfig.json",
         "ecmaVersion": 2020
     },
-    "rules": {
-        "max-len": 0
-    }
+    "ignorePatterns": [
+        "node_modules",
+        "dist",
+        "**/*.d.ts"
+    ]
 }

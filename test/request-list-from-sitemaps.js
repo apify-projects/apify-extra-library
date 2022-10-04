@@ -1,5 +1,5 @@
 const Apify = require('apify');
-const { requestListFromSitemaps } = require('../src/parsing');
+const { requestListFromSitemaps } = require('../src-js/parsing');
 
 Apify.main(async () => {
     const proxyConfiguration = await Apify.createProxyConfiguration({

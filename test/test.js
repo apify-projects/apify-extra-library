@@ -1,6 +1,6 @@
 const assert = require('assert');
 
-const { calculateLocalOffsetLimit } = require('../src/storage');
+const { calculateLocalOffsetLimit } = require('../src-js/storage');
 
 describe('calculateLocalOffsetLimit', () => {
     it('calculates correct local limit and offset', () => {
