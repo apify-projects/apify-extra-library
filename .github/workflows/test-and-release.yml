@@ -66,6 +66,7 @@ jobs:
 
             - name: ESLint
               run: npm run lint
+              continue-on-error: true
           
     deploy:
         name: Publish to Github packages

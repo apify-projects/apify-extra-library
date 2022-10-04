@@ -11,14 +11,8 @@ export interface ParallelPersistedPushDataOptions {
  * Useful for pushing a large number of items at once
  * where migration could introduce duplicates and consume extra CUs
  * Only first param is mandatory
- * @param {Array<Object>} items
- * @param {Object} options
- * @param {number} options.uploadBatchSize
- * @param {number} options.uploadSleepMs
- * @param {string} option.outputDatasetIdOrName
- * @param {number} option.parallelPushes
  */
-export const parallelPersistedPushData = async (items, options: ParallelPersistedPushDataOptions = {}) => {
+export const parallelPersistedPushData = async (items: Record<string, any>[], options: ParallelPersistedPushDataOptions = {}) => {
     const {
         uploadBatchSize = 5000,
         uploadSleepMs = 500,
